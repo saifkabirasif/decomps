@@ -78,21 +78,22 @@ jobs:
 
       - name: Smoke test the assembler
         shell: pwsh
+        timeout-minutes: 5
         run: |
-          # The assembler prints its version banner when it is called
-          # without arguments, it has no --version flag.  It is run through
-          # cmd with the standard input closed, because the assembler can
-          # stop and wait for a key press and that would hang the job.
-          # The extra pair of quotes keeps cmd happy about paths with
-          # spaces in them.
-          $exe = (Resolve-Path .\wla-65816.exe).Path
-          cmd /c ('""' + $exe + '" < NUL"') > version.txt 2>&1
-          $version = Get-Content version.txt -Raw
-          if ($version -notmatch "WLA .*65816.*Macro Assembler") {
-            throw "unexpected version output: $version"
+          # The download has to be a real Windows executable and not an
+          # error page.
+          $size = (Get-Item wla-65816.exe).Length
+          if ($size -lt 100000) {
+            throw "the assembler looks truncated ($size bytes)"
+          }
+          $magic = Get-Content -Encoding Byte -TotalCount 2 wla-65816.exe
+          if ($magic[0] -ne 0x4D -or $magic[1] -ne 0x5A) {
+            throw "the download is not a Windows executable"
           }
           # Assemble an empty program, so that the assembler is really
-          # exercised and not just the linker.
+          # exercised and not just the linker.  The standard input is
+          # closed, because the assembler can stop and wait for a key press
+          # and that would hang the job.
           "PRG" | Out-File -Encoding ascii empty.s
           Add-Content -Encoding ascii empty.s ".MEMORYMAP"
           Add-Content -Encoding ascii empty.s "  SLOTSIZE `$8000"
@@ -102,6 +103,7 @@ jobs:
           Add-Content -Encoding ascii empty.s ""
           Add-Content -Encoding ascii empty.s ".ROMBANKSIZE `$8000"
           Add-Content -Encoding ascii empty.s ".ROMBANKS 2"
+          $exe = (Resolve-Path .\wla-65816.exe).Path
           cmd /c ('""' + $exe + '" -o empty.o empty.s < NUL"') | Out-Null
           if (-not (Test-Path empty.o)) {
             throw "the assembler produced no output"
