@@ -48,7 +48,9 @@ def classify(mnemonic: str) -> tuple[str, int]:
     if "#" in norm:
         return "imm8", 1
     if "[x]" in norm:
-        return "indlong", 2
+        # The long indirect forms take the high byte of the pointer from the
+        # direct page bank register, so they are only one byte long.
+        return "indlong", 1
     if "(x,S),Y" in norm:
         return "sry", 1
     if "(x,X)" in norm:

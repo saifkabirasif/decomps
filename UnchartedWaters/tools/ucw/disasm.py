@@ -97,17 +97,24 @@ def _render(mode: str, data: bytes, pc: int, template: str) -> str:
     return ""
 
 
-def decode_65816(data: bytes, pc: int, m16: bool = False) -> Insn:
+def decode_65816(
+    data: bytes, pc: int, m16: bool = False, x16: bool = False
+) -> Insn:
     """Decode one 65816 instruction at `pc` inside `data`.
 
-    `m16` tells the decoder whether the accumulator is in 16 bit mode, which
-    decides the width of immediate operands.
+    `m16` is the width of the accumulator (the M flag) and `x16` the width of
+    the index registers (the X flag).  They decide how wide immediate
+    operands are: LDX/LDY follow the index width, everything else follows the
+    accumulator width.
     """
     opcode = data[0]
     mnemonic, mode, size, template = _OP_65816[opcode]
-    if m16 and mode == "imm8":
-        mode = "imm16"
-        size += 1
+    # REP/SEP always take an 8 bit operand, whatever the accumulator width.
+    if mode == "imm8" and mnemonic not in ("REP", "SEP", "COP", "WDM"):
+        wide = x16 if mnemonic in ("LDX", "LDY") else m16
+        if wide:
+            mode = "imm16"
+            size += 1
     raw = data[:size]
     operand = _render(mode, raw[1:], pc, template)
     # WLA calls the long forms JMP/JSR, the hardware manuals call them

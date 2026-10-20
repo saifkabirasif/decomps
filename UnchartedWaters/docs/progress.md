@@ -35,12 +35,36 @@
   codec?) and write an extractor.
 * Map every asset (tiles, palettes, fonts, portraits, music).
 
-## Phase 2 - milestone: boot + title screen (next)
+## Phase 2 - milestone: boot + title screen (in progress)
 
-* Move the reset path, the native mode entry and the interrupt dispatcher
-  from the ROM into `src/`.
-* Recreate the PPU setup, the tilemap and the font.
-* Verify with `make diff` and by booting the built ROM in Mesen.
+Ported so far (all byte for byte identical to the original):
+
+| Region | Content |
+|---|---|
+| `$8000-$800E` | entry point jump table |
+| `$800F-$809F` | native mode entry, work RAM clear, PPU setup, main jump |
+| `$FFC0-$FFFF` | header and vector table |
+
+`tools/ucw/regions.py` keeps the list of ported regions and
+`tools/tests/test_matching.py` fails if any of them stops matching the
+original ROM.
+
+### WLA quirks found so far
+
+* **Immediate widths**: the original assembler sized immediates from the
+  accumulator width only, so `LDX #$FC` in the boot code is encoded with an
+  8 bit immediate even though the index registers are 16 bit at that point.
+  The port pins such cases down with `.ACCU` / `.INDEX`.
+* **Long indirect jumps**: `JML [$00809C]` assembles to a three byte
+  instruction in the boot code, while the original uses the full 24 bit form
+  (`DC 9C 80 00`).  Those four bytes are written out by hand in
+  `src/boot.s`.
+
+### Next
+
+* Port the PPU setup routine at `$80A0`.
+* Port the main loop (`$90C9`-`$9600`, the hottest code in the game).
+* Recreate the tilemap and the font so the title screen appears.
 
 ## Later phases
 

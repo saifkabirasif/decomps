@@ -50,9 +50,10 @@ class Tracer:
         self.rom = rom
         self.mapping = mapping
         self.max_insns = max_insns
-        # The accumulator width (the M flag).  The game spends most of its
-        # time in 16 bit mode, and immediate operands depend on it.
+        # Register widths: the M flag (accumulator) and the X flag (index).
+        # The game spends most of its time in 16 bit mode.
         self.m16 = True
+        self.x16 = True
         self.result = TraceResult()
         self._visited: set[tuple[int, int]] = set()
 
@@ -98,7 +99,7 @@ class Tracer:
             if raw is None:
                 self.result.unresolved.append((cur_addr, "unmapped"))
                 break
-            insn = decode_65816(raw, cur_addr, self.m16)
+            insn = decode_65816(raw, cur_addr, self.m16, self.x16)
             if insn.mnemonic == ".byte":
                 # Not a valid instruction: we have run into data.
                 phys = self.mapping.to_phys(cur_bank, cur_addr)
@@ -124,10 +125,14 @@ class Tracer:
             operand = insn.operand
 
             if mnemonic in ("REP", "SEP"):
-                # Bit 5 of the operand selects the M flag (accumulator width).
+                # Bit 4 of the operand selects the index width (X flag) and
+                # bit 5 the accumulator width (M flag).  REP clears the bits
+                # (16 bit), SEP sets them (8 bit).
                 flags = raw[1] if len(raw) > 1 else 0
                 if flags & 0x20:
-                    self.m16 = mnemonic == "SEP"
+                    self.m16 = mnemonic == "REP"
+                if flags & 0x10:
+                    self.x16 = mnemonic == "REP"
 
             if mnemonic in ("JSR", "JSL"):
                 if mnemonic == "JSR":

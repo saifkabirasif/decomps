@@ -1,2 +1,3 @@
 [objects]
 build/asm/main.o
+build/src/boot.o
