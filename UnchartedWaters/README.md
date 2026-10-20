@@ -17,9 +17,9 @@ game's assets and produce a new ROM from your own copy of the original.
 |---|---|
 | 0 - toolchain, scaffold, CI | done |
 | 1 - cartridge analysis (mapping, header, disassembler) | mostly done |
-| 2 - milestone: boot + title screen | next |
-| 3 - asset pipeline | pending |
-| 4 - editor app (Windows + Linux) | pending |
+| 2 - milestone: boot + title screen | in progress |
+| 3 - asset pipeline | in progress |
+| 4 - editor app (Windows + Linux) | in progress, builds and runs |
 | 5 - the rest of the game | pending |
 | 6 - music editing, rebuild mode | pending |
 
@@ -35,6 +35,7 @@ src/     the game itself, one file per module (coming next)
 spc/     the SPC700 audio program (not yet located)
 assets/  extracted assets (tiles, palettes, fonts, text, portraits)
 tools/   Python tooling: disassembler, tracer, asset pipeline, diffing
+tools/gui/  the editor app (C# / Avalonia)
 docs/    analysis notes
 build/   build output (git ignored)
 ```
@@ -59,8 +60,27 @@ make disasm     # analyse the original ROM, write listings to build/disasm
 make test       # run the Python test suite
 ```
 
-At the moment `make rom` reproduces the cartridge's header and vector table
-exactly; the code follows as each module is ported.
+At the moment `make rom` reproduces the cartridge's header, vector table and
+the boot code exactly; the rest follows as each module is ported.
+
+## The editor
+
+The editor is a .NET 8 / Avalonia application.  It runs on Windows and
+Linux from the same sources.
+
+```sh
+make gui        # build it
+make gui-test   # run its unit tests
+```
+
+It can also be started with a cartridge already open:
+
+```sh
+dotnet run --project tools/gui -- "../.games/Uncharted Waters (USA).sfc"
+```
+
+Ready made binaries for both platforms are published by the
+`publish-exe` workflow whenever a `v*` tag is pushed.
 
 ## Tooling notes
 
@@ -71,7 +91,11 @@ exactly; the code follows as each module is ported.
   data.
 * `tools/ucw/mesen.py` - headless Mesen harness: boots a ROM, scripts
   input, reads CPU/VRAM/WRAM/SPC memory.
+* `tools/asset_table.py` - reads the table of the 38 named data blocks the
+  cartridge keeps at bank `$00`, `$F800`.
 * `tools/diff_rom.py` - per bank comparison against the original ROM.
+* `tools/gui/UnchartedWaters.Core/` - the same ROM and asset handling for
+  the editor, with unit tests next to it.
 
 ## Licence
 

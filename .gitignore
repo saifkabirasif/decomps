@@ -28,10 +28,13 @@ build/
 # Locally built tools & release binaries
 # (published binaries live in GitHub Releases, not in git)
 # ---------------------------------------------------------------------------
-tools/bin/
-tools/vendor/
-tools/gui/bin/
-tools/gui/obj/
+UnchartedWaters/tools/bin/
+UnchartedWaters/tools/vendor/
+UnchartedWaters/tools/gui/bin/
+UnchartedWaters/tools/gui/obj/
+UnchartedWaters/tools/gui/dist/
+UnchartedWaters/tools/gui/*/bin/
+UnchartedWaters/tools/gui/*/obj/
 *.exe
 
 # ---------------------------------------------------------------------------

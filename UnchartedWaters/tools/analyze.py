@@ -16,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from ucw.disasm import disassemble_65816, decode_65816  # noqa: E402
+from ucw.disasm import decode_65816  # noqa: E402
 from ucw.map import MAPPINGS  # noqa: E402
 from ucw.rom import Rom, checksum, checksum16  # noqa: E402
 from ucw.trace import trace_rom  # noqa: E402

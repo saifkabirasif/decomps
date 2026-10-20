@@ -20,21 +20,13 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "9.0"
+          dotnet-version: "8.0"
 
-      - name: Check that the app project exists
-        id: check
-        working-directory: UnchartedWaters
-        run: |
-          if [ -f tools/gui/UnchartedWaters.Gui.csproj ]; then
-            echo "found=true" >> $GITHUB_OUTPUT
-          else
-            echo "found=false" >> $GITHUB_OUTPUT
-            echo "::notice::The GUI project does not exist yet - nothing to publish."
-          fi
+      - name: Restore
+        working-directory: UnchartedWaters/tools/gui
+        run: dotnet restore UnchartedWaters.sln
 
       - name: Publish win-x64
-        if: steps.check.outputs.found == 'true'
         working-directory: UnchartedWaters/tools/gui
         run: |
           dotnet publish UnchartedWaters.Gui.csproj \
@@ -43,7 +35,6 @@ jobs:
             -p:DebugType=none -o dist/win-x64
 
       - name: Publish linux-x64
-        if: steps.check.outputs.found == 'true'
         working-directory: UnchartedWaters/tools/gui
         run: |
           dotnet publish UnchartedWaters.Gui.csproj \
@@ -52,7 +43,6 @@ jobs:
             -p:DebugType=none -o dist/linux-x64
 
       - name: Upload binaries
-        if: steps.check.outputs.found == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: uncharted-waters-editor
@@ -61,7 +51,7 @@ jobs:
             UnchartedWaters/tools/gui/dist/linux-x64/**
 
       - name: Attach to the GitHub release
-        if: steps.check.outputs.found == 'true' && github.event_name == 'push'
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           files: |

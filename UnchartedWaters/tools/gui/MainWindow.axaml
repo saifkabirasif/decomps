@@ -1,0 +1,95 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:UnchartedWaters.Gui.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="640"
+        x:Class="UnchartedWaters.Gui.MainWindow"
+        Title="{Binding Title}"
+        Width="1100" Height="700"
+        MinWidth="720" MinHeight="480">
+
+  <Design.DataContext>
+    <vm:MainWindowViewModel />
+  </Design.DataContext>
+
+  <DockPanel>
+    <Menu DockPanel.Dock="Top">
+      <MenuItem Header="_File">
+        <MenuItem Header="_Open..." Command="{Binding OpenCommand}" />
+        <Separator />
+        <MenuItem Header="_Save" Command="{Binding SaveCommand}" />
+        <MenuItem Header="Save _As..." Command="{Binding SaveAsCommand}" />
+      </MenuItem>
+    </Menu>
+
+    <Border DockPanel.Dock="Bottom" BorderThickness="0,1,0,0" BorderBrush="#30FFFFFF" Padding="8,4">
+      <TextBlock Text="{Binding Status}" FontSize="12" Opacity="0.75" />
+    </Border>
+
+    <Grid ColumnDefinitions="300,*">
+      <DockPanel Grid.Column="0" Margin="8">
+        <TextBlock DockPanel.Dock="Top" Text="Assets" FontWeight="Bold" Margin="0,0,0,4" />
+        <ListBox ItemsSource="{Binding Assets}" SelectedItem="{Binding SelectedAsset}">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:AssetItem">
+              <StackPanel Margin="0,2">
+                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Detail}" FontSize="11" Opacity="0.6" />
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </DockPanel>
+
+      <TabControl Grid.Column="1" Margin="0,8,8,8">
+        <TabItem Header="Hex">
+          <ListBox ItemsSource="{Binding HexRows}" FontFamily="Consolas,Menlo,Monospace" FontSize="12">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:HexRow">
+                <StackPanel Orientation="Horizontal" Margin="0,1">
+                  <TextBlock Text="{Binding Offset, StringFormat='{}{0:X6}'}" Opacity="0.55" MinWidth="70" />
+                  <TextBlock Text="{Binding Hex}" MinWidth="360" />
+                  <TextBlock Text="{Binding Text}" Opacity="0.75" />
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </TabItem>
+
+        <TabItem Header="Graphics">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8" Spacing="8">
+              <TextBlock Text="Bits per pixel" VerticalAlignment="Center" />
+              <ComboBox Width="90"
+                        ItemsSource="{Binding BppOptions}"
+                        SelectedItem="{Binding BppSelection, Mode=TwoWay}" />
+              <TextBlock Text="Columns" VerticalAlignment="Center" />
+              <TextBox Width="60" Text="{Binding ColumnsText, Mode=TwoWay}" />
+              <TextBlock Text="Start" VerticalAlignment="Center" />
+              <TextBox Width="60" Text="{Binding GraphicsOffsetText, Mode=TwoWay}" />
+              <TextBlock Text="{Binding BlockKind}" VerticalAlignment="Center" Opacity="0.6" />
+            </StackPanel>
+            <ScrollViewer>
+              <Image Source="{Binding Graphics}" Stretch="None" />
+            </ScrollViewer>
+          </DockPanel>
+        </TabItem>
+
+        <TabItem Header="Text">
+          <ListBox ItemsSource="{Binding Strings}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:TextItem">
+                <StackPanel Orientation="Horizontal" Margin="0,1">
+                  <TextBlock Text="{Binding Location}" Opacity="0.55" MinWidth="80"
+                             FontFamily="Consolas,Menlo,Monospace" />
+                  <TextBox Text="{Binding Text, Mode=TwoWay}" MinWidth="320" />
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </TabItem>
+      </TabControl>
+    </Grid>
+  </DockPanel>
+</Window>

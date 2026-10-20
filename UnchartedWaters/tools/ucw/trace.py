@@ -253,7 +253,6 @@ def render_listing(
     end: int = 0xFFFF,
 ) -> str:
     """Render a disassembly listing for one bank range."""
-    from .disasm import disassemble_65816
 
     lines = []
     addr = start

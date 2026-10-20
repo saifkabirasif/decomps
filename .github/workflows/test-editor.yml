@@ -1,0 +1,43 @@
+name: test editor
+
+on:
+  push:
+    paths:
+      - "UnchartedWaters/tools/gui/**"
+      - ".github/workflows/test-editor.yml"
+  pull_request:
+    paths:
+      - "UnchartedWaters/tools/gui/**"
+      - ".github/workflows/test-editor.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: build and test the editor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0"
+
+      - name: Restore
+        working-directory: UnchartedWaters/tools/gui
+        run: dotnet restore UnchartedWaters.sln
+
+      - name: Build
+        working-directory: UnchartedWaters/tools/gui
+        run: dotnet build UnchartedWaters.sln -c Release --no-restore
+
+      - name: Test
+        working-directory: UnchartedWaters/tools/gui
+        run: dotnet test UnchartedWaters.sln -c Release --no-build
+
+      - name: Make sure the warnings stay empty
+        working-directory: UnchartedWaters/tools/gui
+        run: |
+          # The editor is built with warnings as errors so that a new
+          # warning cannot slip in unnoticed.
+          dotnet build UnchartedWaters.sln -c Release --no-restore \
+            -p:TreatWarningsAsErrors=true

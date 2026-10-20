@@ -6,6 +6,8 @@
 #   make verify check every ported region byte for byte
 #   make disasm analyse the original ROM and write disassembly listings
 #   make test   run the Python test suite
+#   make gui    build the editor app (needs the .NET SDK)
+#   make gui-test   run the editor's xunit tests
 #
 # The original ROM is *not* part of this repository: put your own copy in
 # ../../.games/ (see ../../.games/README.md).
@@ -13,10 +15,13 @@
 WLA        ?= wla-65816
 WLALINK    ?= wlalink
 PYTHON     ?= python3
+DOTNET     ?= dotnet
 
 BUILD_DIR  := $(CURDIR)/build
 DISASM_DIR := $(BUILD_DIR)/disasm
 ROM_BUILT  := $(BUILD_DIR)/uncharted_waters.sfc
+GUI_DIR    := $(CURDIR)/tools/gui
+GUI_SLN    := $(GUI_DIR)/UnchartedWaters.sln
 
 # The name is kept in its own variable: "make" would otherwise try to expand
 # the "(USA)" part as a variable reference.
@@ -26,7 +31,7 @@ ROM_ORIG   := $(CURDIR)/../.games/$(ROM_NAME)
 ASM_SOURCES := $(wildcard asm/*.s) $(wildcard src/*.s) $(wildcard spc/*.s)
 OBJECTS     := $(patsubst %.s,$(BUILD_DIR)/%.o,$(ASM_SOURCES))
 
-.PHONY: all rom tools disasm diff verify test clean check-toolchain
+.PHONY: all rom tools disasm diff verify test clean check-toolchain gui gui-test
 
 all: rom
 
@@ -77,6 +82,20 @@ verify: rom
 
 test:
 	$(PYTHON) -m pytest tools/tests -q
+
+# --- editor app -----------------------------------------------------------
+# The GUI is a .NET solution.  The binaries are published by CI, this is
+# only for working on it locally.
+
+gui:
+	@command -v $(DOTNET) >/dev/null 2>&1 || { \
+		echo "error: $(DOTNET) not found. Install the .NET 8 SDK from"; \
+		echo "  https://dotnet.microsoft.com/download/dotnet/8.0"; \
+		exit 1; }
+	$(DOTNET) build $(GUI_SLN) -c Release
+
+gui-test:
+	$(DOTNET) test $(GUI_SLN) -c Release
 
 clean:
 	rm -rf $(BUILD_DIR)

@@ -13,7 +13,7 @@
   (`tools/gen_opcode_tables.py`).
 * CI: `build-tools.yml` (assembler build + opcode table drift check),
   `test-tools.yml` (pytest + ruff), `publish-exe.yml` (editor app for
-  Windows and Linux).
+  Windows and Linux), `test-editor.yml` (editor build + xunit tests).
 
 ## Phase 1 - cartridge analysis (mostly done)
 
@@ -26,14 +26,28 @@
   Mode 7 usage and the APU port protocol all identified.
 * `asm/main.s` rebuilds the header and the vector table **byte for byte**
   identical to the original.
+* The asset table at bank `$00`, `$F800` is parsed: 38 named blocks
+  (`tools/asset_table.py`).  The numeric fields are stored **little endian**.
+* Every block starts with the two bytes `4C 03`.  The two bytes behind the
+  magic tell what the block holds:
+  * `4C 03 00 00` - raw data that can be used as it is.  Only four blocks
+    are like this: `sgdata` (sprite graphics), `fdata` (font metrics and
+    the character names), `cbmap0` (the character map) and `kdata` (the
+    sprite definitions).
+  * anything else - a script whose payload is stored in the cartridge's
+    own encoded form.  That covers `root`, `initop`, `ibento` and the rest
+    of the chapter logic as well as the `s_*` dialogue blocks, so **most
+    of the cartridge is not directly editable yet**.  Decoding that form
+    is the next big job.
 
 ### Open items
 
-* Locate the SPC700 program (likely bank $0E / file offset $070000) and
-  disassemble it.
-* Identify the compression used by the dense banks (custom Wolf Team
-  codec?) and write an extractor.
-* Map every asset (tiles, palettes, fonts, portraits, music).
+* Locate the SPC700 program and disassemble it.  The code that talks to
+  the APU is around `$B860` (it writes `$2140`); the pointer to the
+  program it downloads is set up just before that.
+* Write a decoder for the encoded script blocks.
+* Map the palettes: they are 15 bit BGR555 words, but the table that
+  points at them is built at runtime by the routine at `$9C3D`.
 
 ## Phase 2 - milestone: boot + title screen (in progress)
 
@@ -43,6 +57,10 @@ Ported so far (all byte for byte identical to the original):
 |---|---|
 | `$8000-$800E` | entry point jump table |
 | `$800F-$809F` | native mode entry, work RAM clear, PPU setup, main jump |
+| `$80A0-$818F` | PPU setup |
+| `$8190-$82B2` | global initialisation |
+| `$82B3-$8360` | DMA setup |
+| `$8361-$842F` | NMI handler |
 | `$FFC0-$FFFF` | header and vector table |
 
 `tools/ucw/regions.py` keeps the list of ported regions and
@@ -62,12 +80,40 @@ original ROM.
 
 ### Next
 
-* Port the PPU setup routine at `$80A0`.
-* Port the main loop (`$90C9`-`$9600`, the hottest code in the game).
+* Port the main loop (`$90C9`-$9600`, the hottest code in the game).
 * Recreate the tilemap and the font so the title screen appears.
+
+## Phase 3 - editor app (in progress)
+
+The cross platform editor is an Avalonia (C#) application under
+`tools/gui/`.  It has three projects:
+
+| Project | Content |
+|---|---|
+| `UnchartedWaters.Core` | ROM image, asset table, tile decoder, palette, text scanner - no UI dependencies so it can be tested on its own |
+| `UnchartedWaters.Gui` | the Avalonia application |
+| `UnchartedWaters.Core.Tests` | xunit tests for the core library |
+
+What works today:
+
+* Open a cartridge (also from the command line) and list the 38 assets.
+* Hex view of the selected asset.
+* Graphics view that decodes the tiles of the selected asset.
+* Text view that lists the NUL terminated strings of the font and dialogue
+  blocks, and writes an edited string back into the image.
+* Save the cartridge.
+
+The tests cover the parts that are easy to get subtly wrong: the little
+endian asset table, the 2bpp/4bpp/8bpp tile layouts, the ROM address
+mapping and the string replacement rules.
+
+### Next
+
+* Show the real CGRAM palette instead of the grey ramp.
+* Edit palettes and portraits, not just the text.
+* Import and export the graphics blocks as PNG.
 
 ## Later phases
 
-* Asset pipeline (extract/pack) and the cross platform editor app.
 * The rest of the game module by module.
 * Music editing (needs the SPC700 program).
