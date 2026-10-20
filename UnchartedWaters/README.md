@@ -79,8 +79,13 @@ It can also be started with a cartridge already open:
 dotnet run --project tools/gui -- "../.games/Uncharted Waters (USA).sfc"
 ```
 
-Ready made binaries for both platforms are published by the
-`publish-exe` workflow whenever a `v*` tag is pushed.
+Ready made binaries for both platforms are published with every `v*` tag:
+
+* [Uncharted Waters editor releases](https://github.com/saifkabirasif/decomps/releases)
+
+`UnchartedWaters.Gui.exe` is the Windows build, `UnchartedWaters.Gui` the
+Linux one.  Both are self contained, they do not need the .NET runtime
+installed.
 
 ## Tooling notes
 
