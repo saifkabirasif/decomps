@@ -1,0 +1,15 @@
+# The lint rules are pinned here so that a new ruff release cannot change
+# what the build accepts.  Ruff 0.17 widened its default rule set a lot,
+# which turned a lot of harmless code into build failures.
+#
+# E402 is on because the tools have to extend sys.path before they can
+# import the local package, and they say so with a noqa comment.
+[lint]
+select = [
+    "E4",   # imports: multiple imports on one line, not at the top of file
+    "E7",   # statements: comparison, lambda, bare except
+    "E9",   # runtime: syntax and IO errors
+    "F",    # pyflakes: undefined and unused names
+    "I",    # isort: import order
+    "UP",   # pyupgrade: modern Python
+]

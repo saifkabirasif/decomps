@@ -7,8 +7,8 @@ assembler we use to build the ROM.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Iterator
 
 from .opcodes_65816 import TABLE as _OP_65816
 from .spc700_table import TABLE as _OP_SPC700

@@ -152,7 +152,8 @@ class Tracer:
                 target_addr = long & 0xFFFF
                 func.calls.add(long)
                 self.trace(target_bank, target_addr, depth + 1)
-                cur_bank, cur_addr = cur_bank, (cur_addr + insn.size) & 0xFFFF
+                # The call leaves the bank alone, only the address moves on.
+                cur_addr = (cur_addr + insn.size) & 0xFFFF
                 continue
 
             if mnemonic in ("JMP", "JML"):

@@ -26,7 +26,9 @@ jobs:
           sudo apt-get install -y cmake
 
       - name: Build WLA DX
-        working-directory: ${{ runner.temp }}/wla-dx
+        # The clone below creates "wla-dx" inside the working directory, so
+        # the working directory has to be one that already exists.
+        working-directory: ${{ runner.temp }}
         run: |
           git clone --depth 1 https://github.com/vhelin/wla-dx.git
           cd wla-dx
@@ -84,21 +86,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install cmake
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake
+      # The generator only reads "i65816.c" out of the WLA DX checkout, so
+      # there is no need to build the assembler here.
+      - name: Clone WLA DX
+        working-directory: ${{ runner.temp }}
+        run: git clone --depth 1 https://github.com/vhelin/wla-dx.git
 
-      - name: Regenerate the tables and check for drift
+      - name: Regenerate the opcode tables
         working-directory: ${{ runner.temp }}/wla-dx
         run: |
-          git clone --depth 1 https://github.com/vhelin/wla-dx.git
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release >/dev/null
-        env:
-          WLA_DIR: ${{ runner.temp }}/wla-dx
+          python3 $GITHUB_WORKSPACE/UnchartedWaters/tools/gen_opcode_tables.py \
+            --wla "${{ runner.temp }}/wla-dx"
 
-      - name: Diff the generated tables
+      - name: Check for drift
         working-directory: ${{ runner.temp }}/wla-dx
         run: |
-          python3 $GITHUB_WORKSPACE/UnchartedWaters/tools/gen_opcode_tables.py --wla "$WLA_DIR"
           git -C "$GITHUB_WORKSPACE" diff --exit-code -- UnchartedWaters/tools/ucw/opcodes_65816.py

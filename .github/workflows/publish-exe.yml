@@ -51,9 +51,13 @@ jobs:
             UnchartedWaters/tools/gui/dist/linux-x64/**
 
       - name: Attach to the GitHub release
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || inputs.publish == true
         uses: softprops/action-gh-release@v2
         with:
+          # A tag push publishes under the tag name; a manual run gets a
+          # throwaway release named after the run.
+          tag_name: ${{ github.event_name == 'push' && github.ref_name || format('build-{0}', github.run_number) }}
+          name: ${{ github.event_name == 'push' && github.ref_name || format('Editor build {0}', github.run_number) }}
           files: |
             UnchartedWaters/tools/gui/dist/win-x64/**
             UnchartedWaters/tools/gui/dist/linux-x64/**
