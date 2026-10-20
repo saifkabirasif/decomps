@@ -17,6 +17,7 @@ jobs:
   wla:
     name: WLA DX (linux)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -40,13 +41,15 @@ jobs:
         run: |
           export PATH="${{ runner.temp }}/wla-install/bin:$PATH"
           # The assembler prints its version banner when it is called
-          # without arguments, it has no --version flag.
-          wla-65816 > /tmp/wla-version.txt 2>&1
+          # without arguments, it has no --version flag.  The standard
+          # input is closed so that the assembler cannot stop and wait
+          # for a key press.
+          wla-65816 < /dev/null > /tmp/wla-version.txt 2>&1
           grep -qE "WLA .*65816.*Macro Assembler" /tmp/wla-version.txt
           # Assemble an empty program, so that the assembler is really
           # exercised and not just the linker.
           printf '.MEMORYMAP\n  SLOTSIZE $8000\n  DEFAULTSLOT 0\n  SLOT 0 $8000\n.ENDME\n\n.ROMBANKSIZE $8000\n.ROMBANKS 2\n' > /tmp/empty.s
-          wla-65816 -o /tmp/empty.o /tmp/empty.s
+          wla-65816 -o /tmp/empty.o /tmp/empty.s < /dev/null
           test -s /tmp/empty.o
 
       - name: Upload wla-65816
@@ -58,6 +61,9 @@ jobs:
   wla-windows:
     name: WLA DX (windows binary)
     runs-on: windows-latest
+    # The assembler can stop and wait for a key press, so give the job a
+    # short leash instead of letting it hang for hours.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -74,8 +80,14 @@ jobs:
         shell: pwsh
         run: |
           # The assembler prints its version banner when it is called
-          # without arguments, it has no --version flag.
-          $version = & .\wla-65816.exe 2>&1 | Out-String
+          # without arguments, it has no --version flag.  It is run through
+          # cmd with the standard input closed, because the assembler can
+          # stop and wait for a key press and that would hang the job.
+          # The extra pair of quotes keeps cmd happy about paths with
+          # spaces in them.
+          $exe = (Resolve-Path .\wla-65816.exe).Path
+          cmd /c ('""' + $exe + '" < NUL"') > version.txt 2>&1
+          $version = Get-Content version.txt -Raw
           if ($version -notmatch "WLA .*65816.*Macro Assembler") {
             throw "unexpected version output: $version"
           }
@@ -90,7 +102,7 @@ jobs:
           Add-Content -Encoding ascii empty.s ""
           Add-Content -Encoding ascii empty.s ".ROMBANKSIZE `$8000"
           Add-Content -Encoding ascii empty.s ".ROMBANKS 2"
-          .\wla-65816.exe -o empty.o empty.s
+          cmd /c ('""' + $exe + '" -o empty.o empty.s < NUL"') | Out-Null
           if (-not (Test-Path empty.o)) {
             throw "the assembler produced no output"
           }
