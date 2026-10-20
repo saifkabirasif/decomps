@@ -8,6 +8,10 @@ from __future__ import annotations
 
 PORTED_REGIONS: list[tuple[int, int, str]] = [
     (0x000000, 0x0000A0, "bank $00: entry table, native mode entry, boot setup"),
+    (0x0000A0, 0x000190, "bank $00: PPU setup"),
+    (0x000190, 0x0002B3, "bank $00: global variable initialisation"),
+    (0x0002B3, 0x000361, "bank $00: DMA setup routines"),
+    (0x000361, 0x000430, "bank $00: NMI handler"),
     (0x007FC0, 0x008000, "bank $00: header and vector table"),
 ]
 
