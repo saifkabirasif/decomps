@@ -70,11 +70,22 @@ jobs:
       - name: Fetch the prebuilt Windows assembler
         shell: pwsh
         run: |
+          # The release does not carry the executables on their own, they
+          # are inside the archive.  Picking any ".exe" would get the
+          # Visual C++ redistributable instead of the assembler.
           $release = Invoke-RestMethod https://api.github.com/repos/vhelin/wla-dx/releases/latest
-          $asset = $release.assets | Where-Object { $_.name -match 'wla-65816.*\.exe$' } | Select-Object -First 1
-          if ($null -eq $asset) { $asset = $release.assets | Where-Object { $_.name -match '\.exe$' } | Select-Object -First 1 }
-          if ($null -eq $asset) { throw "no Windows binary found in the latest release" }
-          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile wla-65816.exe
+          $asset = $release.assets | Where-Object { $_.name -match 'Win64\.zip$' } | Select-Object -First 1
+          if ($null -eq $asset) {
+            throw "no Windows build found in the latest release ($($release.tag_name))"
+          }
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile wla.zip
+          Expand-Archive -Path wla.zip -DestinationPath wla
+          $exe = Get-ChildItem -Path wla -Filter "wla-65816.exe" -Recurse | Select-Object -First 1
+          if ($null -eq $exe) {
+            throw "the archive does not contain wla-65816.exe"
+          }
+          Copy-Item $exe.FullName -Destination wla-65816.exe
+          Write-Host "got $((Get-Item wla-65816.exe).Length) bytes from $($asset.name)"
 
       - name: Smoke test the assembler
         shell: pwsh
@@ -89,6 +100,12 @@ jobs:
           $bytes = [System.IO.File]::ReadAllBytes("wla-65816.exe")
           if ($bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
             throw ("the download does not start with MZ: {0:X2} {1:X2}" -f $bytes[0], $bytes[1])
+          }
+          # Make sure it really is the assembler and not, say, the Visual
+          # C++ redistributable, which is an executable as well.
+          $raw = [System.IO.File]::ReadAllText("wla-65816.exe", [System.Text.Encoding]::ASCII)
+          if ($raw -notlike "*wla-65816*") {
+            throw "the download does not look like the assembler"
           }
           # Assemble an empty program, so that the assembler is really
           # exercised and not just the linker.  The exit code is checked by
