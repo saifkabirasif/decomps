@@ -91,9 +91,9 @@ jobs:
             throw ("the download does not start with MZ: {0:X2} {1:X2}" -f $bytes[0], $bytes[1])
           }
           # Assemble an empty program, so that the assembler is really
-          # exercised and not just the linker.  The standard input is
-          # closed, because the assembler can stop and wait for a key press
-          # and that would hang the job.
+          # exercised and not just the linker.  The exit code is checked by
+          # hand, so that a failure says what went wrong instead of only
+          # showing the exit code.
           "PRG" | Out-File -Encoding ascii empty.s
           Add-Content -Encoding ascii empty.s ".MEMORYMAP"
           Add-Content -Encoding ascii empty.s "  SLOTSIZE `$8000"
@@ -104,17 +104,15 @@ jobs:
           Add-Content -Encoding ascii empty.s ".ROMBANKSIZE `$8000"
           Add-Content -Encoding ascii empty.s ".ROMBANKS 2"
           $exe = (Resolve-Path .\wla-65816.exe).Path
-          # The exit code is checked by hand, so that a failure says what
-          # went wrong instead of only showing the exit code.
           $ErrorActionPreference = "Continue"
-          $output = cmd /c ('""' + $exe + '" -o empty.o empty.s < NUL"') 2>&1
+          & $exe -o empty.o empty.s
           $code = $LASTEXITCODE
           $ErrorActionPreference = "Stop"
           if ($code -ne 0) {
-            throw "the assembler failed with exit code $code`n$output"
+            throw "the assembler failed with exit code $code"
           }
           if (-not (Test-Path empty.o)) {
-            throw "the assembler produced no output`n$output"
+            throw "the assembler produced no output"
           }
           Remove-Item empty.o
 
