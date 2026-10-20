@@ -1,0 +1,47 @@
+name: test tools
+
+on:
+  push:
+    paths:
+      - "UnchartedWaters/tools/**"
+      - ".github/workflows/test-tools.yml"
+  pull_request:
+    paths:
+      - "UnchartedWaters/tools/**"
+      - ".github/workflows/test-tools.yml"
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    name: python tooling
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pytest
+        run: python -m pip install --upgrade pip pytest
+
+      - name: Run the test suite
+        working-directory: UnchartedWaters
+        run: python -m pytest tools/tests -q
+
+  ruff:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: python -m pip install --upgrade pip ruff
+
+      - name: Lint
+        working-directory: UnchartedWaters
+        run: ruff check tools

@@ -1,0 +1,104 @@
+name: build tools
+
+on:
+  push:
+    paths:
+      - "UnchartedWaters/tools/**"
+      - "UnchartedWaters/asm/**"
+      - ".github/workflows/build-tools.yml"
+  pull_request:
+    paths:
+      - "UnchartedWaters/tools/**"
+      - "UnchartedWaters/asm/**"
+      - ".github/workflows/build-tools.yml"
+  workflow_dispatch:
+
+jobs:
+  wla:
+    name: WLA DX (linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cmake
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake
+
+      - name: Build WLA DX
+        working-directory: ${{ runner.temp }}/wla-dx
+        run: |
+          git clone --depth 1 https://github.com/vhelin/wla-dx.git
+          cd wla-dx
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="${{ runner.temp }}/wla-install"
+          cmake --build build -- -j2
+          cmake -P build/cmake_install.cmake
+
+      - name: Smoke test the assembler
+        run: |
+          export PATH="${{ runner.temp }}/wla-install/bin:$PATH"
+          wla-65816 --version
+          printf '.MEMORYMAP\nSLOTS: $8000-$FFFF\nDEFAULTSLOT: 0\n.ENDME\n' > /tmp/empty.s
+          wla-65816 -o /tmp/empty.s /tmp/empty.s
+
+      - name: Upload wla-65816
+        uses: actions/upload-artifact@v4
+        with:
+          name: wla-65816-linux
+          path: ${{ runner.temp }}/wla-install/bin/wla-65816
+
+  wla-windows:
+    name: WLA DX (windows binary)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch the prebuilt Windows assembler
+        shell: pwsh
+        run: |
+          $release = Invoke-RestMethod https://api.github.com/repos/vhelin/wla-dx/releases/latest
+          $asset = $release.assets | Where-Object { $_.name -match 'wla-65816.*\.exe$' } | Select-Object -First 1
+          if ($null -eq $asset) { $asset = $release.assets | Where-Object { $_.name -match '\.exe$' } | Select-Object -First 1 }
+          if ($null -eq $asset) { throw "no Windows binary found in the latest release" }
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile wla-65816.exe
+
+      - name: Smoke test the assembler
+        shell: pwsh
+        run: |
+          "PRG" | Out-File -Encoding ascii empty.s
+          Add-Content -Encoding ascii empty.s ".MEMORYMAP"
+          Add-Content -Encoding ascii empty.s "SLOTS: $8000-$FFFF"
+          Add-Content -Encoding ascii empty.s "DEFAULTSLOT: 0"
+          Add-Content -Encoding ascii empty.s ".ENDME"
+          .\wla-65816.exe -o empty.s empty.s
+
+      - name: Upload wla-65816.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: wla-65816-windows
+          path: wla-65816.exe
+
+  opcode-tables:
+    name: opcode tables are up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cmake
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake
+
+      - name: Regenerate the tables and check for drift
+        working-directory: ${{ runner.temp }}/wla-dx
+        run: |
+          git clone --depth 1 https://github.com/vhelin/wla-dx.git
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release >/dev/null
+        env:
+          WLA_DIR: ${{ runner.temp }}/wla-dx
+
+      - name: Diff the generated tables
+        working-directory: ${{ runner.temp }}/wla-dx
+        run: |
+          python3 $GITHUB_WORKSPACE/UnchartedWaters/tools/gen_opcode_tables.py --wla "$WLA_DIR"
+          git -C "$GITHUB_WORKSPACE" diff --exit-code -- UnchartedWaters/tools/ucw/opcodes_65816.py
