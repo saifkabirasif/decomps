@@ -11,6 +11,12 @@ on:
         type: boolean
         default: false
 
+# The token of a workflow run cannot write to the repository by default,
+# and creating a release needs that.
+permissions:
+  contents: write
+  actions: read
+
 jobs:
   publish:
     name: build win-x64 + linux-x64
