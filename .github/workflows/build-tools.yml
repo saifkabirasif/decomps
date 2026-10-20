@@ -39,9 +39,15 @@ jobs:
       - name: Smoke test the assembler
         run: |
           export PATH="${{ runner.temp }}/wla-install/bin:$PATH"
-          wla-65816 --version
-          printf '.MEMORYMAP\nSLOTS: $8000-$FFFF\nDEFAULTSLOT: 0\n.ENDME\n' > /tmp/empty.s
-          wla-65816 -o /tmp/empty.s /tmp/empty.s
+          # The assembler prints its version banner when it is called
+          # without arguments, it has no --version flag.
+          wla-65816 > /tmp/wla-version.txt 2>&1
+          grep -qE "WLA .*65816.*Macro Assembler" /tmp/wla-version.txt
+          # Assemble an empty program, so that the assembler is really
+          # exercised and not just the linker.
+          printf '.MEMORYMAP\n  SLOTSIZE $8000\n  DEFAULTSLOT 0\n  SLOT 0 $8000\n.ENDME\n\n.ROMBANKSIZE $8000\n.ROMBANKS 2\n' > /tmp/empty.s
+          wla-65816 -o /tmp/empty.o /tmp/empty.s
+          test -s /tmp/empty.o
 
       - name: Upload wla-65816
         uses: actions/upload-artifact@v4
@@ -67,12 +73,28 @@ jobs:
       - name: Smoke test the assembler
         shell: pwsh
         run: |
+          # The assembler prints its version banner when it is called
+          # without arguments, it has no --version flag.
+          $version = & .\wla-65816.exe 2>&1 | Out-String
+          if ($version -notmatch "WLA .*65816.*Macro Assembler") {
+            throw "unexpected version output: $version"
+          }
+          # Assemble an empty program, so that the assembler is really
+          # exercised and not just the linker.
           "PRG" | Out-File -Encoding ascii empty.s
           Add-Content -Encoding ascii empty.s ".MEMORYMAP"
-          Add-Content -Encoding ascii empty.s "SLOTS: $8000-$FFFF"
-          Add-Content -Encoding ascii empty.s "DEFAULTSLOT: 0"
+          Add-Content -Encoding ascii empty.s "  SLOTSIZE `$8000"
+          Add-Content -Encoding ascii empty.s "  DEFAULTSLOT 0"
+          Add-Content -Encoding ascii empty.s "  SLOT 0 `$8000"
           Add-Content -Encoding ascii empty.s ".ENDME"
-          .\wla-65816.exe -o empty.s empty.s
+          Add-Content -Encoding ascii empty.s ""
+          Add-Content -Encoding ascii empty.s ".ROMBANKSIZE `$8000"
+          Add-Content -Encoding ascii empty.s ".ROMBANKS 2"
+          .\wla-65816.exe -o empty.o empty.s
+          if (-not (Test-Path empty.o)) {
+            throw "the assembler produced no output"
+          }
+          Remove-Item empty.o
 
       - name: Upload wla-65816.exe
         uses: actions/upload-artifact@v4
