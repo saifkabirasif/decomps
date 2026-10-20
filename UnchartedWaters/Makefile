@@ -2,8 +2,9 @@
 #
 # Targets:
 #   make rom    assemble the ROM with WLA DX (assembler + linker)
-#   make disasm analyse the original ROM and write disassembly listings
 #   make diff   compare the built ROM against the original dump
+#   make verify check every ported region byte for byte
+#   make disasm analyse the original ROM and write disassembly listings
 #   make test   run the Python test suite
 #
 # The original ROM is *not* part of this repository: put your own copy in
@@ -16,12 +17,16 @@ PYTHON     ?= python3
 BUILD_DIR  := $(CURDIR)/build
 DISASM_DIR := $(BUILD_DIR)/disasm
 ROM_BUILT  := $(BUILD_DIR)/uncharted_waters.sfc
-ROM_ORIG   := $(CURDIR)/../.games/Uncharted Waters (USA).sfc
+
+# The name is kept in its own variable: "make" would otherwise try to expand
+# the "(USA)" part as a variable reference.
+ROM_NAME   := Uncharted Waters (USA).sfc
+ROM_ORIG   := $(CURDIR)/../.games/$(ROM_NAME)
 
 ASM_SOURCES := $(wildcard asm/*.s) $(wildcard src/*.s) $(wildcard spc/*.s)
-OBJECTS     := $(patsubst %.s,$(BUILD_DIR)/%.o,$(notdir $(ASM_SOURCES)))
+OBJECTS     := $(patsubst %.s,$(BUILD_DIR)/%.o,$(ASM_SOURCES))
 
-.PHONY: all rom tools disasm diff test clean check-toolchain
+.PHONY: all rom tools disasm diff verify test clean check-toolchain
 
 all: rom
 
@@ -44,7 +49,16 @@ $(BUILD_DIR)/%.o: %.s
 	@mkdir -p $(dir $@)
 	$(WLA) -I $(CURDIR)/asm -o $@ $<
 
-rom: tools $(BUILD_DIR)/asm/main.o
+# The link file lists the objects explicitly, so it has to be regenerated
+# whenever a source file is added.
+asm/linkfile: $(ASM_SOURCES)
+	@printf '[objects]\n' > $@
+	@for src in $(ASM_SOURCES); do \
+		obj=$$(basename $$src .s); \
+		printf 'build/%s/%s.o\n' "$$(dirname $$src)" "$$obj" >> $@; \
+	done
+
+rom: tools $(OBJECTS) asm/linkfile
 	@mkdir -p $(BUILD_DIR)
 	$(WLALINK) asm/linkfile $(ROM_BUILT)
 	@echo "built $(ROM_BUILT)"
@@ -57,6 +71,9 @@ disasm:
 # --- verification ---------------------------------------------------------
 diff: rom
 	$(PYTHON) tools/diff_rom.py --built $(ROM_BUILT) --original "$(ROM_ORIG)"
+
+verify: rom
+	$(PYTHON) tools/verify.py --built $(ROM_BUILT) --original "$(ROM_ORIG)"
 
 test:
 	$(PYTHON) -m pytest tools/tests -q

@@ -111,7 +111,11 @@ def decode_65816(
     mnemonic, mode, size, template = _OP_65816[opcode]
     # REP/SEP always take an 8 bit operand, whatever the accumulator width.
     if mode == "imm8" and mnemonic not in ("REP", "SEP", "COP", "WDM"):
-        wide = x16 if mnemonic in ("LDX", "LDY") else m16
+        # WLA DX sizes these immediates after the *index* width, not the
+        # accumulator width: LDX/LDY/CPX/CPY take a 16 bit operand while the
+        # X flag is set.  That is why the original ROM contains three byte
+        # "CPY #$0007" encodings.
+        wide = x16 if mnemonic in ("LDX", "LDY", "CPX", "CPY") else m16
         if wide:
             mode = "imm16"
             size += 1

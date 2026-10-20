@@ -1,7 +1,10 @@
 [objects]
 build/asm/main.o
 build/src/boot.o
-build/src/ppu.o
-build/src/init.o
 build/src/dma.o
+build/src/graphics.o
+build/src/init.o
+build/src/ppu.o
+build/src/sprites.o
+build/src/transfer.o
 build/src/vblank.o

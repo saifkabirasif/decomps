@@ -27,19 +27,31 @@ def _original() -> bytes:
         pytest.skip("the original ROM is not available")
 
 
-@pytest.mark.parametrize("start,end,description", PORTED_REGIONS)
-def test_ported_region_matches(start, end, description):
+@pytest.mark.parametrize("region", PORTED_REGIONS, ids=lambda r: r.name)
+def test_ported_region_matches(region):
     original = _original()
     if not BUILT.exists():
         pytest.skip("no built ROM (run `make rom` first)")
     built = BUILT.read_bytes()
     assert len(built) == len(original), "the built ROM has the wrong size"
+
+    start = region.file_offset
     mismatches = [
         start + i
-        for i in range(end - start)
+        for i in range(region.size)
         if built[start + i] != original[start + i]
     ]
     assert not mismatches, (
-        f"{description}: {len(mismatches)} bytes differ, "
-        f"first at ${mismatches[0]:06X}"
+        f"{region.describe()}: {len(mismatches)} bytes differ, "
+        f"first at file offset ${mismatches[0]:06X}"
     )
+
+
+def test_regions_do_not_overlap():
+    for index, first in enumerate(PORTED_REGIONS):
+        for second in PORTED_REGIONS[index + 1 :]:
+            assert not (
+                first.bank == second.bank
+                and first.start < second.end
+                and second.start < first.end
+            ), f"{first.name} overlaps {second.name}"
