@@ -2,9 +2,14 @@
 build/asm/main.o
 build/src/boot.o
 build/src/dma.o
+build/src/flash.o
 build/src/graphics.o
+build/src/graphics_groups.o
+build/src/hdma.o
 build/src/init.o
 build/src/ppu.o
 build/src/sprites.o
+build/src/system.o
 build/src/transfer.o
 build/src/vblank.o
+build/src/window.o

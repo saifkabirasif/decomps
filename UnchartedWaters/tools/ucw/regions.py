@@ -53,6 +53,11 @@ PORTED_REGIONS: list[Region] = [
     Region(0x00, 0x8430, 0x8512, "sprite, palette and tile uploads", "src/sprites.s"),
     Region(0x00, 0x8512, 0x8636, "VRAM/CGRAM/OAM transfer engine", "src/transfer.s"),
     Region(0x00, 0x8636, 0x8829, "graphics mode updates", "src/graphics.s"),
+    Region(0x00, 0x8829, 0x8870, "character flash effect", "src/flash.s"),
+    Region(0x00, 0x8870, 0x8B20, "the four graphic groups", "src/graphics_groups.s"),
+    Region(0x00, 0x8B20, 0x8C05, "window masks and background scrolling", "src/window.s"),
+    Region(0x00, 0x8C05, 0x8CD2, "HDMA and window positions", "src/hdma.s"),
+    Region(0x00, 0x8CD2, 0x8D4C, "screen mode, arithmetic and OAM upload", "src/system.s"),
     Region(0x00, 0xFFC0, 0x10000, "header and vector table", "asm/main.s"),
 ]
 
