@@ -231,6 +231,23 @@ The four blocks that hold raw data (`sgdata`, `fdata`, `cbmap0`,
 
 `tools/scriptvm.py` reads all of this out of the cartridge.
 
+### Reading the programs
+
+The program of a block can be listed.  `tools/scriptdis.py` walks it:
+the dispatch table says where the code of every instruction is, and the
+code of an instruction says how many bytes its operands take.
+
+The machine keeps the pointer to the program in the direct page at
+`$0006`, so the game itself says where the program is: the pointer was
+watched while the game played the introduction, and the places it stood
+at were the places the instructions are.  Every instruction that the
+watching showed agrees with what the code of the handler says.
+
+Walking the programs of all the blocks gives 92,156 instructions.  Only
+0.7% of them are instructions the machine has no code for, where in
+plain data about 8% would be.  So the programs are read right, and the
+place each block starts its program is right as well.
+
 ### The text of the dialogue
 
 The text is written into the program of the block in the clear.  A string
