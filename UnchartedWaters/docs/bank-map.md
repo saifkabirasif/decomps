@@ -155,13 +155,25 @@ name turned out to be a chance pair of bytes, so **there are no hidden
 script programs**.  The script programs are the ones the asset table
 names, and they live in banks `$01` and `$04` to `$09`.
 
+### The keys do not work
+
+The headless emulator does not get a key map, so `GetKeyCode` answers 0
+for every name and nothing that is pressed reaches the game.  The game
+therefore only ever plays the introduction, the title screen and the
+menu on their own.  The rest of the game has to be reached some other
+way: by making the key map work, or by changing the cartridge so that
+it starts in the scene that is wanted.
+
 ## What is left
 
 * Banks `$03` and `$0A` to `$1F` are the largest unknown: 17 banks,
   544 KiB, over half of the cartridge.  They hold the graphics of the
   game, the tables of the portraits and the sprites, and the sound.
 * The pictures of the game have to be found by playing through it, one
-  scene at a time, and every one of them added to the map.
+  scene at a time, and every one of them added to the map.  The tables
+  of the graphics are put together while the game runs, so the script
+  says which pictures are wanted: working out the commands of the script
+  that load the graphics is the way to the whole list.
 * The tables that describe the portraits are nowhere to be seen yet.
 * The sound program of the SPC700 has not been found.
 * The engine of bank `$00` is only half traced: the parts that the
