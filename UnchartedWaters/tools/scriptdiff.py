@@ -50,6 +50,11 @@ MIN_CHANGES = 4
 #: How long to wait at most before the memory is read anyway.
 MAX_WAIT = 180.0
 
+#: How many frames after the start of the introduction are looked at, and
+#: how far apart they are.
+WINDOW = 600
+WINDOW_STEP = 150
+
 #: A few places of the video memory that only hold the expected value when
 #: the game shows the text of the introduction.  The tool waits for them,
 #: so that every run ends at the same place whatever the speed of the
@@ -122,6 +127,19 @@ def _boot(rom_path: Path):
         except Exception:
             pass
         video = mesen.read_memory(video_type, 0, 0x10000)
+
+    # The text on the screen moves on, so one picture only shows the part
+    # of the dialogue that is being read at that moment.  A few pictures
+    # after each other are taken, so that a command which changes any of
+    # the lines that are read in that stretch shows up.
+    frames = b""
+    for step in range(0, WINDOW, WINDOW_STEP):
+        try:
+            mesen.wait_frames(DIALOGUE_FRAME + step, timeout=MAX_WAIT)
+        except Exception:
+            pass
+        frames += mesen.read_memory(video_type, 0, 0x10000)
+    video = frames
 
     work = mesen.read_memory(work_type, 0, 0x10000)
     mesen.release()

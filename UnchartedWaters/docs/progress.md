@@ -75,9 +75,10 @@ editor does exactly that.  It was checked by editing a line of the user
 interface text, saving the cartridge and booting the result in Mesen:
 the new text shows up in the memory of the running game.
 
-The scripts are looked at from the outside, the interpreter is still
-unknown.  The routine at `$9ABE` looks a block up by name in the table at
-`$00:$F800` and the routine at `$9C7C` walks a table of 14 byte records.
+The scripts are programs of a machine of their own; that machine is
+worked out further down.  The routine at `$9ABE` looks a block up by
+name in the table at `$00:$F800` and the routine at `$9C7C` walks a table
+of 14 byte records.
 
 ### Colours
 
@@ -128,54 +129,109 @@ Because of that the editor now offers the whole cartridge as the first
 entry of the asset list, and the graphics view takes a hexadecimal start
 offset into it.
 
-### The script blocks
+### The script machine
 
-The blocks that are not raw data hold the script of the game: the text
-of the dialogue in the clear, with other bytes in between that the game
-interprets.  All 38 blocks together hold 2560 strings and 41,544 bytes
-of readable text, which is 19% of them.
+The blocks that are not raw data are **programs**.  They are not 65816
+code and they are not compressed; they are the program of a small
+machine that the game runs.  The machine lives in bank `$00` and the
+game copies a block into the work memory at `$2000` before it runs it.
 
-What is known about the format:
+That was found by tracing the game.  The program counter of the running
+game is sampled twice, once while the game shows its background and once
+while it shows a line of dialogue, and the places that only show up
+during the dialogue are looked at.  Almost all of them are in bank `$00`.
+The one that is not is a short piece of code in the work memory at
+`$21BA`:
 
-* A string is a run of text that ends with a NUL byte.  Inside the run
-  there can be a line break (`$0A`) and a control code, the escape byte
-  `$1B` followed by one command byte.
-* The control codes sit **inside** the text, sometimes even inside a
-  word.  That is why "Ah, the legendary" and the next word are two
-  strings, and why a sentence is spread over several of them.
-* The bytes in between are not 65816 code, they do not point at the
-  strings with a 16 bit offset, and they are not a dense LZ stream
-  either.  What they are is still open.
-* Every block starts with the two bytes `4C 03`.  The two bytes behind
-  them name the kind of the script: `00 00` for the raw blocks, and
-  `20 96`, `20 A5`, `20 B0`, `20 B8`, `20 D0` or `20 20` for the
-  six kinds of script.
+```
+$21BA: JSL $008000        ; and $008000 is $8000 in bank $00,
+$21BE: JSL $008003        ; which jumps to $A0FD
+$21C2: JSL $008000
+```
 
-`tools/scriptdiff.py` works out what the bytes in between do: it
-patches one byte of a block, boots the cartridge in the headless Mesen
-harness and compares the video memory with the unpatched cartridge.
+`$A0FD` is the machine.  It takes the block out of the stack, sets the
+pointer to the block in the direct page at `$0000` and reads the program
+one byte at a time with `LDA [$0000]`.
 
-Getting a clean measurement out of that took some doing:
+**The dispatch table** of the machine is at `$00:$A797`: 256 addresses,
+one for every instruction, read as 16 bit little endian numbers.  The
+handler of an instruction is five bytes long and carries the place in the
+block that the instruction works on:
 
-* The **video memory** is the only usable measurement.  The work memory
-  of the game moves by some 14,000 bytes between two runs, the video
-  memory does not move at all.
-* The game shows its text in a box and moves on after a while, so the
-  picture has to be taken at the same frame every time.  The tool looks
-  for the picture of the introduction, remembers the frame it was on and
-  then waits for exactly that frame in every later run.  Pass `--frame`
-  to skip the search.
+```
+$A15C: LDA #$FFE9        ; the instruction $00 works on the place -$17
+$A15F: BNE $A196
+$A196: CLC
+$A197: ADC $04           ; the place is relative to the start of the block
+$A199: STA $00
+$A19B: LDA ($00),Y
+$A19D: STA $0A
+$A19F: JMP $A141         ; back to the loop
+```
 
-With that, patching one letter of a line of the introduction changes
-6868 bytes of the video memory, while patching a byte of the text that
-is not on the screen changes nothing.  That is the tool working.
+The instructions come in groups:
+
+| Instructions | What they do |
+|---|---|
+| `$00`-`$0B` | read one of the variables of the block |
+| `$0C`-`$0F` | read further along the block |
+| `$10`-`$1B` | the same, into another place |
+| `$20`-`$2B` | write a variable of the block |
+| `$40`-`$4F` | one shared piece of code for sixteen instructions |
+| `$50`-`$5F`, `$60`-`$6F`, `$71`-`$7F` | the same |
+| `$80`-`$EA` | an instruction each |
+| `$EB`-`$FE` | not used |
+
+**The header of a block** says where its program starts:
+
+```
+4C 03 XX 20  BA 21  00 00
+```
+
+The two bytes behind the mark are the place in the work memory where the
+program starts, and `$21BA` is the machine itself.  The blocks of the
+same kind start at the same place in the block:
+
+| Kind | Place in the block | Blocks |
+|---|---|---|
+| `$2020` | `$0020` | `root` |
+| `$2096` | `$0096` | `initop`, `ibento`, `maituki`, `jouriku`, `scom`, `sensou`, `uarugo`, `ucom`, `ending`, `uminato`, `cminato` |
+| `$20A5` | `$00A5` | `senmain`, `senfe` |
+| `$20B0` | `$00B0` | `hantei`, `mdisp1`, `uminato2`, `um_sub`, `oukyu`, `koueki`, `sakaba`, `s_card`, `zousen` |
+| `$20B8` | `$00B8` | `s_nwaka`, `s_nsaso`, `s_nori`, `s_sake`, `s_onna`, `s_tobaku`, `s_ibent`, `s_bj`, `s_pk` |
+| `$20D0` | `$00D0` | `z_tyuuko`, `z_sinzou` |
+
+The four blocks that hold raw data (`sgdata`, `fdata`, `cbmap0`,
+`kdata`) have no program.
+
+`tools/scriptvm.py` reads all of this out of the cartridge.
+
+### The text of the dialogue
+
+The text is written into the program of the block in the clear.  A string
+is a run of text that ends with a NUL byte.  Inside the run there can be
+
+* a line break, `$0A`, and
+* a control code: the escape byte `$1B` followed by one command byte.
+
+The control codes are commands of the text itself, a change of colour or
+a wait for example, so they are kept when a string is edited.
+
+The sentences are spread over several strings, because the machine
+prints a string at a time.  "Ah, the legendary" and the rest of the
+sentence are two strings, and the word "kingdom" is in a third one.
+
+All 38 blocks together hold 2560 strings and 41,544 bytes of readable
+text, which is 19% of them.
 
 ### Open items
 
-* Find the commands of the script, so that a line of dialogue can be
-  given a new colour or a new pause.  The tool to find them is ready;
-  the sweep over the code region of a block is a matter of time, at
-  about 45 seconds a byte.
+* Work out what the instructions of the script machine do.  The dispatch
+  table is known and every instruction has its own piece of code, so
+  this is now a matter of reading that code.  The instruction that
+  prints a line of dialogue and the one that waits for the player are
+  the ones worth having first: with them the editor can show the
+  dialogue of the game as it will be read.
 * Find the table that points at the graphics, so that the editor can
   list them the way it lists the named blocks.  At the moment the places
   have to be found with `tools/vramfind.py`.

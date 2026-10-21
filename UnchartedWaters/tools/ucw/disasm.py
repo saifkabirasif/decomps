@@ -149,6 +149,36 @@ def disassemble_65816(data: bytes, start: int, count: int) -> Iterator[Insn]:
         pos += insn.size
 
 
+def disassemble_65816_tracked(
+    data: bytes,
+    start: int,
+    count: int,
+    m16: bool = False,
+    x16: bool = False,
+) -> Iterator[Insn]:
+    """Yield decoded instructions, following the width changes of the code.
+
+    The width of the accumulator and of the index registers is decided by
+    the M and X flags, and the game changes them in the middle of its
+    code with SEP and REP.  A decoder that keeps the same width for the
+    whole run reads the code after such a change wrong, so this one
+    follows it.
+    """
+    pos = 0
+    for _ in range(count):
+        if pos >= len(data):
+            return
+        insn = decode_65816(data[pos:], start + pos, m16, x16)
+        yield insn
+        if insn.mnemonic in ("SEP", "REP") and insn.operand.startswith("#$"):
+            bits = int(insn.operand[2:], 16)
+            if bits & 0x10:
+                x16 = insn.mnemonic == "REP"
+            if bits & 0x20:
+                m16 = insn.mnemonic == "REP"
+        pos += insn.size
+
+
 
 def decode_spc700(data: bytes, pc: int) -> Insn:
     """Decode one SPC700 instruction at `pc` inside `data`."""

@@ -124,6 +124,9 @@ installed.
 * `tools/scriptdiff.py` - patches one byte of a script block, boots the
   cartridge and compares the video memory, which shows what the byte
   does.
+* `tools/scriptvm.py` - reads the script machine of the cartridge out of
+  it: the header of a block, the dispatch table of its 256 instructions
+  and the place in the block that every instruction works on.
 * `tools/vramfind.py` - looks for the video memory of the running game in
   the cartridge, which shows where the graphics live.
 * `tools/diff_rom.py` - per bank comparison against the original ROM.
