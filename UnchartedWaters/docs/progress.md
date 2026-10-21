@@ -249,11 +249,20 @@ sentence are two strings, and the word "kingdom" is in a third one.
 All 38 blocks together hold 2560 strings and 41,544 bytes of readable
 text, which is 19% of them.
 
-How the program points at a string is not known yet.  The strings stand
-at the end of the block and the program at the start, and no plain
-16 bit number in the program points at one of them, whatever the base
-it is measured from is taken to be.  So the machine must build a table
-of them while it runs, or the text is reached in some other way.
+The text does not stand at the end of the block, it stands **in** the
+program.  In `initop` the text of the opening runs from `$1D3E` to
+`$20C6` and the program carries on after it, with the bytes of the
+instructions and their operands.  So the strings are the data of the
+program, and the instructions point at them.
+
+The control codes of the text are the escape byte `$1B` followed by one
+byte.  In `initop` the codes `$1B W`, `$1B P` and `$1B F` are used; the
+`$1B W` looks like the end of a line and `$1B P` and `$1B F` like the
+start of a new page and a new picture.
+
+How an instruction points at a string is not known yet: no plain 16 bit
+number in the program points at one of the strings, whatever base it is
+measured from.
 
 ### Open items
 

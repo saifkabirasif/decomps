@@ -51,8 +51,11 @@ MIN_CHANGES = 4
 MAX_WAIT = 180.0
 
 #: How many frames after the start of the introduction are looked at, and
-#: how far apart they are.
-WINDOW = 600
+#: how far apart they are.  A window of zero looks at one picture only,
+#: which gives the cleanest result: two runs of the same cartridge then
+#: do not differ at all.  A wider window catches a command that changes
+#: the text a little later, but the runs drift apart a little as well.
+WINDOW = 0
 WINDOW_STEP = 150
 
 #: A few places of the video memory that only hold the expected value when
@@ -89,8 +92,13 @@ def _load_mesen():
     return Mesen, MEMORY_TYPE_SNES_VIDEO_RAM, MEMORY_TYPE_SNES_WORK_RAM
 
 
-def _boot(rom_path: Path):
-    """Boot the cartridge and return the video and the work memory."""
+def _boot(rom_path: Path, picture: bytes | None = None):
+    """Boot the cartridge and return the video and the work memory.
+
+    When a picture is given, the game is run until that exact picture is
+    on the screen.  That pins every run to the same place, whatever the
+    speed of the machine is.
+    """
     Mesen, video_type, work_type = _load_mesen()
 
     mesen = Mesen()
@@ -108,19 +116,33 @@ def _boot(rom_path: Path):
 
     # The text on the screen moves on, so the picture has to be taken at
     # the same frame every time.  The frame the introduction starts on is
-    # worked out once and then used for every run.
+    # worked out once and then used for every run.  When a picture is
+    # given, the game is run until that picture is on the screen, which
+    # pins every run to the same place.
     global DIALOGUE_FRAME
     if DIALOGUE_FRAME is None:
         # The game shows its text in a box and moves on after a while, so
         # the frame is looked for by watching for the picture of the
-        # introduction.
+        # introduction, or for the picture that was asked for.
         deadline = time.time() + MAX_WAIT
+        best = -1
         while time.time() < deadline:
             video = mesen.read_memory(video_type, 0, 0x10000)
-            if all(video[off] == value for off, value in DIALOGUE_MARKERS.items()):
+            if picture is not None:
+                same = sum(1 for a, b in zip(video, picture) if a == b)
+                if same > best:
+                    best = same
+                    DIALOGUE_FRAME = mesen.frame_count()
+                if same == len(picture):
+                    break
+            elif all(
+                video[off] == value for off, value in DIALOGUE_MARKERS.items()
+            ):
                 break
             time.sleep(SETTLE)
-        DIALOGUE_FRAME = mesen.frame_count()
+        if picture is not None:
+            print(f"the picture that was asked for was {best} of "
+                  f"{len(picture)} bytes", flush=True)
     else:
         try:
             mesen.wait_frames(DIALOGUE_FRAME, timeout=MAX_WAIT)
@@ -129,11 +151,12 @@ def _boot(rom_path: Path):
         video = mesen.read_memory(video_type, 0, 0x10000)
 
     # The text on the screen moves on, so one picture only shows the part
-    # of the dialogue that is being read at that moment.  A few pictures
-    # after each other are taken, so that a command which changes any of
-    # the lines that are read in that stretch shows up.
+    # of the dialogue that is being read at that moment.  With a window
+    # of more than one frame a few pictures after each other are taken,
+    # so that a command which changes any of the lines that are read in
+    # that stretch shows up.
     frames = b""
-    for step in range(0, WINDOW, WINDOW_STEP):
+    for step in range(0, max(1, WINDOW), WINDOW_STEP):
         try:
             mesen.wait_frames(DIALOGUE_FRAME + step, timeout=MAX_WAIT)
         except Exception:
@@ -164,6 +187,8 @@ def run(
     rom_path: Path,
     block: str,
     probes: list[tuple[int, int | None]],
+    picture: bytes | None = None,
+    save_picture: Path | None = None,
 ) -> dict:
     """Run the probes and report what changed."""
     original = rom_path.read_bytes()
@@ -173,8 +198,11 @@ def run(
     print(f"block {block}: {len(base)} bytes at file 0x{asset.file_offset:06X}", flush=True)
 
     print("running the unpatched cartridge twice for the comparison...", flush=True)
-    video0, work0 = _boot(rom_path)
-    video1, work1 = _boot(rom_path)
+    video0, work0 = _boot(rom_path, picture)
+    if save_picture is not None:
+        save_picture.write_bytes(video0[:0x10000])
+        print(f"  the picture was written to {save_picture}", flush=True)
+    video1, work1 = _boot(rom_path, picture)
     noise_video = len(_diff(video0, video1))
     noise_work = len(_diff(work0, work1))
     print(
@@ -189,15 +217,22 @@ def run(
             continue
 
         # Without a value the byte is changed to something else, so that
-        # the effect of the place can be seen.
-        written = base[offset] ^ 0xFF if value is None else value
+        # the effect of the place can be seen.  A letter is changed into
+        # another letter, because a byte outside the letters is not drawn
+        # at all and would show nothing.
+        if value is not None:
+            written = value
+        elif 0x20 <= base[offset] < 0x7F:
+            written = ord("X") if base[offset] != ord("X") else ord("Y")
+        else:
+            written = base[offset] ^ 0xFF
         patched = bytearray(original)
         patched[asset.file_offset + offset] = written
 
         path = Path(tempfile.gettempdir()) / "ucw-scriptdiff.sfc"
         path.write_bytes(patched)
         try:
-            video, work = _boot(path)
+            video, work = _boot(path, picture)
         finally:
             path.unlink(missing_ok=True)
 
@@ -247,6 +282,13 @@ def main() -> int:
                         help="a range of offsets to try, e.g. 8-40")
     parser.add_argument("--step", type=int, default=1,
                         help="only try every n-th offset of the range")
+    parser.add_argument("--picture", type=Path, default=None,
+                        help="a picture of the video memory to run the game up to")
+    parser.add_argument("--save-picture", type=Path, default=None,
+                        help="write the picture of the run to this file")
+    parser.add_argument("--window", type=int, default=None,
+                        help="how many frames after the introduction to look "
+                             "at, in steps of 150 frames")
     parser.add_argument("--frame", type=int, default=None,
                         help="the frame the introduction is on the screen, "
                              "so that the search can be skipped")
@@ -277,8 +319,13 @@ def main() -> int:
         global DIALOGUE_FRAME
         DIALOGUE_FRAME = args.frame
 
+    if args.window is not None:
+        global WINDOW
+        WINDOW = args.window
+
     try:
-        result = run(rom, args.block, probes)
+        picture = args.picture.read_bytes() if args.picture else None
+        result = run(rom, args.block, probes, picture, args.save_picture)
     except Exception as exc:  # pragma: no cover - the emulator can fail in many ways
         print(f"error: {exc}", file=sys.stderr)
         return 1
