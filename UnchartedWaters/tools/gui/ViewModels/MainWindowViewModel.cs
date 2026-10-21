@@ -123,22 +123,48 @@ public sealed class MainWindowViewModel : ObservableObject
         {
             if (Set(ref _graphicsOffset, value < 0 ? 0 : value))
             {
+                Raise(nameof(GraphicsOffsetText));
                 RefreshGraphics();
             }
         }
     }
 
     /// <summary>The offset as it is shown in the text box.</summary>
+    /// <remarks>
+    /// The offset is shown in hexadecimal, because that is how the
+    /// addresses of the cartridge are written down.  A number without a
+    /// prefix is read as a decimal one.
+    /// </remarks>
     public string GraphicsOffsetText
     {
-        get => _graphicsOffset.ToString();
+        get => $"0x{_graphicsOffset:X}";
         set
         {
-            if (int.TryParse(value, out var offset) && offset >= 0)
+            if (TryParseOffset(value, out var offset) && offset >= 0)
             {
                 GraphicsOffset = offset;
             }
         }
+    }
+
+    /// <summary>Read an offset that may be written in hex or in decimal.</summary>
+    private static bool TryParseOffset(string? text, out int offset)
+    {
+        offset = 0;
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var trimmed = text.Trim();
+        if (trimmed.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+        {
+            return int.TryParse(trimmed[2..], System.Globalization.NumberStyles.HexNumber,
+                System.Globalization.CultureInfo.InvariantCulture, out offset);
+        }
+
+        return int.TryParse(trimmed, out offset);
     }
 
     /// <summary>What the header of the selected block says about it.</summary>
@@ -195,13 +221,25 @@ public sealed class MainWindowViewModel : ObservableObject
         _assets.Clear();
         Assets.Clear();
 
+        // The whole cartridge comes first.  A lot of the graphics of the
+        // game sits in parts of the cartridge that the table of the named
+        // blocks does not describe, and this is the only way to get at them.
+        var whole = new AssetEntry(
+            "the whole cartridge",
+            0,
+            0x8000,
+            _rom.Data.Length,
+            0);
+        _assets.Add(whole);
+        Assets.Add(new AssetItem(whole));
+
         foreach (var entry in AssetTable.Parse(_rom))
         {
             _assets.Add(entry);
             Assets.Add(new AssetItem(entry));
         }
 
-        Status = $"{_rom.BankCount} banks, {Assets.Count} assets";
+        Status = $"{_rom.BankCount} banks, {Assets.Count - 1} assets";
         Raise(nameof(HasRom));
         Raise(nameof(Title));
 

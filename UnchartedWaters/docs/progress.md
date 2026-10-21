@@ -86,15 +86,38 @@ game writes the low byte of a colour into the CGRAM before the high one,
 so in the ROM the words are **little endian**.  `Palette.ReadPalette` and
 `Palette.WritePalette` in the editor take care of that.
 
+### Where the graphics are
+
+A lot of the graphics of the game is **not** in one of the 38 named
+blocks.  The table at `$00:$F800` only names the scripts, the font and
+the character map; the tiles live in parts of the cartridge that the
+table does not describe at all.
+
+They were found by booting the game and looking at the video memory: what
+the game copies into the video memory is a copy of the cartridge, so a
+piece of the video memory can be looked for in the cartridge.  The
+`tools/vramfind.py` helper does that and reports the places it found.
+So far:
+
+| File | Bank | Content |
+|---|---|---|
+| `$062730-$062BB0` | `$0C` | the tiles of the characters |
+| `$086920-$086A40` | `$10` | a small set of tiles |
+| `$0F52F0-$0F78B0` | `$1E` | a screen of text |
+
+The tiles are 4bpp, the same format the decoder of the editor uses.
+
+Because of that the editor now offers the whole cartridge as the first
+entry of the asset list, and the graphics view takes a hexadecimal start
+offset into it.
+
 ### Open items
 
-* Find the tile graphics themselves.  They are **not** in the four raw
-  blocks: neither `sgdata`, `cbmap0` nor `kdata` hold a plain 4bpp tile
-  set, so the graphics are either inside the script blocks or behind
-  another format.  The sprite groups only name the tiles, they do not
-  carry them.
 * Work out the commands of the script, so that a line of dialogue can be
   given a new colour or a new pause.
+* Find the table that points at the graphics, so that the editor can
+  list them the way it lists the named blocks.  At the moment the places
+  have to be found with `tools/vramfind.py`.
 * Locate the SPC700 program and disassemble it.  The code that talks to
   the APU is around `$B860` (it writes `$2140`); the pointer to the
   program it downloads is set up just before that.

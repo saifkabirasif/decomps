@@ -67,7 +67,7 @@
               <TextBlock Text="Columns" VerticalAlignment="Center" />
               <TextBox Width="60" Text="{Binding ColumnsText, Mode=TwoWay}" />
               <TextBlock Text="Start" VerticalAlignment="Center" />
-              <TextBox Width="60" Text="{Binding GraphicsOffsetText, Mode=TwoWay}" />
+              <TextBox Width="90" Text="{Binding GraphicsOffsetText, Mode=TwoWay}" />
               <TextBlock Text="{Binding BlockKind}" VerticalAlignment="Center" Opacity="0.6" />
             </StackPanel>
             <ScrollViewer>

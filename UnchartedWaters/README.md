@@ -78,6 +78,11 @@ you look at them as hex, as tiles, as sprite groups and as text.  The
 text of the game, the dialogue included, can be edited and written back
 into the cartridge.
 
+A lot of the graphics is not in one of the named blocks, so the first
+entry of the list is the whole cartridge.  The *Graphics* tab then takes
+a hexadecimal start offset into it, which is where the tiles of the
+characters and the other pictures live.
+
 The *Search* tab looks for a string in the memory of the running game
 and says which block of the cartridge it came from.  That finds the
 lines the script splits up with control codes, which cannot be read out
@@ -112,6 +117,8 @@ installed.
   cartridge keeps at bank `$00`, `$F800`.
 * `tools/memsearch.py` - looks for a string in the memory of the running
   game and reports which block of the cartridge it came from.
+* `tools/vramfind.py` - looks for the video memory of the running game in
+  the cartridge, which shows where the graphics live.
 * `tools/diff_rom.py` - per bank comparison against the original ROM.
 * `tools/gui/UnchartedWaters.Core/` - the same ROM and asset handling for
   the editor, with unit tests next to it.
