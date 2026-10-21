@@ -150,8 +150,26 @@ $21C2: JSL $008000
 ```
 
 `$A0FD` is the machine.  It takes the block out of the stack, sets the
-pointer to the block in the direct page at `$0000` and reads the program
-one byte at a time with `LDA [$0000]`.
+pointer to the block in the direct page and reads the program one byte
+at a time.
+
+**The loop of the machine** is at `$A141`:
+
+```
+$A141: SEP #$20
+$A143: LDY #$0000
+$A146: LDA [$0000]        ; the instruction
+$A148: REP #$20
+$A14A: INC $06            ; on to the next byte of the program
+$A14C: AND #$00FF
+$A14F: PHA
+$A150: ASL A              ; the instruction times two
+$A151: TAX
+$A152: LDA $00A797,X      ; where the code of the instruction is
+$A156: STA $00
+$A158: PLX                ; and now X holds the instruction itself
+$A159: JMP [$0000]        ; and it runs
+```
 
 **The dispatch table** of the machine is at `$00:$A797`: 256 addresses,
 one for every instruction, read as 16 bit little endian numbers.  The
@@ -181,6 +199,13 @@ The instructions come in groups:
 | `$50`-`$5F`, `$60`-`$6F`, `$71`-`$7F` | the same |
 | `$80`-`$EA` | an instruction each |
 | `$EB`-`$FE` | not used |
+
+Two places in the direct page work as registers of the machine: `$0A`
+and `$0E`.  The instructions `$60`-`$6F` put the low half of their own
+number on the stack, and `$71`-`$7F` add it to `$0A`.  The instructions
+from `$80` up take their operand out of the program: `$81` reads one
+byte, `$82` reads one byte unless the byte before it says otherwise, and
+so on.
 
 **The header of a block** says where its program starts:
 
@@ -223,6 +248,12 @@ sentence are two strings, and the word "kingdom" is in a third one.
 
 All 38 blocks together hold 2560 strings and 41,544 bytes of readable
 text, which is 19% of them.
+
+How the program points at a string is not known yet.  The strings stand
+at the end of the block and the program at the start, and no plain
+16 bit number in the program points at one of them, whatever the base
+it is measured from is taken to be.  So the machine must build a table
+of them while it runs, or the text is reached in some other way.
 
 ### Open items
 
