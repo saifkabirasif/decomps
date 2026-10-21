@@ -31,7 +31,7 @@
 * Every block starts with the two bytes `4C 03`.  The two bytes behind the
   magic tell what the block holds:
   * `4C 03 00 00` - raw data that can be used as it is.  Only four blocks
-    are like this: `sgdata` (sprite graphics), `fdata` (font metrics and
+    are like this: `sgdata` (the sprite table), `fdata` (font metrics and
     the character names), `cbmap0` (the character map) and `kdata` (the
     sprite definitions).
   * anything else - a script whose payload is stored in the cartridge's
@@ -40,14 +40,43 @@
     of the cartridge is not directly editable yet**.  Decoding that form
     is the next big job.
 
+### The sprite table
+
+`sgdata` is **not** graphics, it is the table of the sprite groups.  After
+the five byte header it holds twenty records of 51 bytes:
+
+| Offset | Size | Content |
+|---|---|---|
+| 0 | 7 | parameters of the group |
+| 7 | 1 | back pointer to the byte in front of the record |
+| 8 | 1 | id of the group, `$A4` to `$A7` in sets of five |
+| 9 | n*2 | animation frames, a tile and an offset each |
+| - | 1 | `$FF` ends the frames |
+| - | - | zero padding up to 51 bytes |
+
+The record after the last one is empty, which ends the table.  The editor
+shows the groups in its *Sprites* tab.
+
+### Colours
+
+A palette is sixteen 16 bit words in the order `0bbbbggggrrrrrrrr`.  The
+game writes the low byte of a colour into the CGRAM before the high one,
+so in the ROM the words are **little endian**.  `Palette.ReadPalette` and
+`Palette.WritePalette` in the editor take care of that.
+
 ### Open items
 
+* Find the tile graphics themselves.  They are **not** in the four raw
+  blocks: neither `sgdata`, `cbmap0` nor `kdata` hold a plain 4bpp tile
+  set, so the graphics are either inside the encoded blocks or behind
+  another format.  The sprite groups only name the tiles, they do not
+  carry them.
+* Write a decoder for the encoded script blocks.
 * Locate the SPC700 program and disassemble it.  The code that talks to
   the APU is around `$B860` (it writes `$2140`); the pointer to the
   program it downloads is set up just before that.
-* Write a decoder for the encoded script blocks.
-* Map the palettes: they are 15 bit BGR555 words, but the table that
-  points at them is built at runtime by the routine at `$9C3D`.
+* Map the palettes: the table that points at them is built at runtime by
+  the routine at `$9C3D`, so the addresses are not in the ROM as such.
 
 ## Phase 2 - milestone: boot + title screen (in progress)
 
@@ -101,11 +130,14 @@ What works today:
 * Graphics view that decodes the tiles of the selected asset.
 * Text view that lists the NUL terminated strings of the font and dialogue
   blocks, and writes an edited string back into the image.
+* Sprites view that lists the twenty sprite groups of `sgdata` with their
+  animation frames.
 * Save the cartridge.
 
 The tests cover the parts that are easy to get subtly wrong: the little
 endian asset table, the 2bpp/4bpp/8bpp tile layouts, the ROM address
-mapping and the string replacement rules.
+mapping, the string replacement rules, the sprite table and the byte
+order of the palettes.
 
 ### Next
 

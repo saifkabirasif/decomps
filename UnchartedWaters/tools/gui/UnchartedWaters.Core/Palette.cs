@@ -5,11 +5,21 @@ namespace UnchartedWaters.Core;
 ///
 /// A colour is stored as 15 bits: five bits of blue, five of green and
 /// five of red, in the order 0bbbbggggrrrrrrrr.
+///
+/// The cartridge keeps the colours of a palette as sixteen 16 bit words.
+/// The game writes them into the CGRAM low byte first, so in the ROM they
+/// are stored little endian.
 /// </summary>
 public static class Palette
 {
     /// <summary>Number of entries in the CGRAM.</summary>
     public const int CgramEntries = 256;
+
+    /// <summary>Number of colours in one palette.</summary>
+    public const int Entries = 16;
+
+    /// <summary>Size of one palette in bytes.</summary>
+    public const int Size = Entries * 2;
 
     /// <summary>Convert a 15 bit BGR555 value into 8 bit components.</summary>
     public static (byte R, byte G, byte B) Decode(int bgr555)
@@ -23,6 +33,41 @@ public static class Palette
     /// <summary>Convert 8 bit components into a 15 bit BGR555 value.</summary>
     public static int Encode(byte r, byte g, byte b) =>
         (r >> 3) | ((g >> 3) << 5) | ((b >> 3) << 10);
+
+    /// <summary>
+    /// Read one palette out of the cartridge.
+    /// </summary>
+    /// <param name="rom">The image.</param>
+    /// <param name="offset">File offset of the palette.</param>
+    /// <remarks>
+    /// The words are little endian, the game writes the low byte of a
+    /// colour into the CGRAM before the high one.
+    /// </remarks>
+    public static (byte R, byte G, byte B)[] ReadPalette(RomImage rom, int offset)
+    {
+        var colors = new (byte R, byte G, byte B)[Entries];
+        for (var i = 0; i < Entries; i++)
+        {
+            colors[i] = Decode(rom.ReadWordLE(offset + i * 2));
+        }
+
+        return colors;
+    }
+
+    /// <summary>
+    /// Write one palette back into the cartridge.
+    /// </summary>
+    /// <param name="rom">The image.</param>
+    /// <param name="offset">File offset of the palette.</param>
+    /// <param name="colors">The sixteen colours to write.</param>
+    public static void WritePalette(RomImage rom, int offset, IReadOnlyList<(byte R, byte G, byte B)> colors)
+    {
+        for (var i = 0; i < colors.Count && i < Entries; i++)
+        {
+            var (r, g, b) = colors[i];
+            rom.WriteWordLE(offset + i * 2, (ushort)Encode(r, g, b));
+        }
+    }
 
     /// <summary>
     /// Pack 8 bit colour components into an opaque 32 bit ARGB value.

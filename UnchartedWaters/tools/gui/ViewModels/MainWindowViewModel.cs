@@ -41,6 +41,8 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public ObservableCollection<PaletteItem> Colors { get; } = new();
 
+    public ObservableCollection<SpriteGroupItem> SpriteGroups { get; } = new();
+
     public RelayCommand OpenCommand { get; }
 
     public RelayCommand SaveCommand { get; }
@@ -242,6 +244,7 @@ public sealed class MainWindowViewModel : ObservableObject
         HexRows.Clear();
         Strings.Clear();
         Colors.Clear();
+        SpriteGroups.Clear();
         Graphics = null;
 
         if (_rom is null || SelectedAsset is null)
@@ -254,6 +257,17 @@ public sealed class MainWindowViewModel : ObservableObject
         var length = Math.Min(entry.Length, _rom.Data.Length - start);
 
         Raise(nameof(BlockKind));
+
+        // The sprite table only lives in the raw blocks, the others hold
+        // data that is not a table of sprite groups.
+        if (AssetHeader.Parse(_rom, start).IsRaw)
+        {
+            var index = 0;
+            foreach (var group in SpriteTable.Parse(_rom, start))
+            {
+                SpriteGroups.Add(new SpriteGroupItem(group, index++));
+            }
+        }
 
         for (var offset = 0; offset < length; offset += 16)
         {

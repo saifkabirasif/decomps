@@ -89,6 +89,24 @@
             </ListBox.ItemTemplate>
           </ListBox>
         </TabItem>
+
+        <TabItem Header="Sprites">
+          <ListBox ItemsSource="{Binding SpriteGroups}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:SpriteGroupItem">
+                <StackPanel Margin="0,3">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding Id}" FontWeight="SemiBold" MinWidth="40" />
+                    <TextBlock Text="{Binding FrameCount, StringFormat='{}{0} frames'}" MinWidth="90" />
+                    <TextBlock Text="{Binding Tiles}" MinWidth="140" Opacity="0.8" />
+                  </StackPanel>
+                  <TextBlock Text="{Binding Frames}" FontSize="11" Opacity="0.6"
+                             FontFamily="Consolas,Menlo,Monospace" />
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </TabItem>
       </TabControl>
     </Grid>
   </DockPanel>

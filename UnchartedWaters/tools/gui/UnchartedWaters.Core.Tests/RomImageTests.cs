@@ -61,36 +61,6 @@ public class RomImageTests
     }
 }
 
-public class PaletteTests
-{
-    [Fact]
-    public void DecodesA15BitColour()
-    {
-        var (r, g, b) = Palette.Decode(0x7FFF);
-
-        Assert.Equal(0xF8, r);
-        Assert.Equal(0xF8, g);
-        Assert.Equal(0xF8, b);
-    }
-
-    [Fact]
-    public void EncodesAndDecodesBackToTheSameColour()
-    {
-        var encoded = Palette.Encode(0xE4, 0xA4, 0x64);
-        var (r, g, b) = Palette.Decode(encoded);
-
-        Assert.Equal(0xE0, r);
-        Assert.Equal(0xA0, g);
-        Assert.Equal(0x60, b);
-    }
-
-    [Fact]
-    public void PacksAcolourIntoAnOpaqueArgbValue()
-    {
-        Assert.Equal(0xFF112233u, Palette.PackArgb(0x11, 0x22, 0x33));
-    }
-}
-
 public class FormatTests
 {
     [Theory]

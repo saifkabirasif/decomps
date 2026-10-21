@@ -102,3 +102,51 @@ public sealed class AssetItem
 
     public override string ToString() => Name;
 }
+
+/// <summary>One sprite group of the "sgdata" block.</summary>
+public sealed class SpriteGroupItem
+{
+    public SpriteGroupItem(SpriteGroup group, int index)
+    {
+        Group = group;
+        Index = index;
+    }
+
+    public SpriteGroup Group { get; }
+
+    /// <summary>The position of the group in the table.</summary>
+    public int Index { get; }
+
+    /// <summary>The id the game gives the group.</summary>
+    public string Id => Group.GroupName;
+
+    /// <summary>How many animation frames the group has.</summary>
+    public int FrameCount => Group.Frames.Count;
+
+    /// <summary>The tiles the animation uses, as a short list.</summary>
+    public string Tiles
+    {
+        get
+        {
+            var tiles = Group.Tiles;
+            if (tiles.Count == 0)
+            {
+                return "none";
+            }
+
+            var range = tiles.Min() == tiles.Max()
+                ? $"{tiles[0]:X2}"
+                : $"{tiles.Min():X2}-{tiles.Max():X2}";
+
+            return $"{range} ({tiles.Count} used)";
+        }
+    }
+
+    /// <summary>The frames of the animation, one per entry.</summary>
+    public string Frames => string.Join(" ", Group.Frames.Select(f => $"{f.Tile:X2}/{f.Offset:X2}"));
+
+    /// <summary>The seven parameter bytes of the group.</summary>
+    public string Parameters => string.Join(" ", Group.Parameters.Select(p => p.ToString("X2")));
+
+    public override string ToString() => $"{Id} ({FrameCount} frames)";
+}

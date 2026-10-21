@@ -9,10 +9,32 @@ namespace UnchartedWaters.Gui;
 public static class TileRenderer
 {
     /// <summary>Render an index sheet with the given colour ramp.</summary>
-    public static Bitmap Render(byte[] sheet, int width, int height, uint[] ramp)
+    /// <remarks>
+    /// Returns nothing when the bitmap cannot be made, for example when
+    /// the size is out of range.  A broken block of tiles should not stop
+    /// the editor from working.
+    /// </remarks>
+    public static Bitmap? Render(byte[] sheet, int width, int height, uint[] ramp)
+    {
+        if (width <= 0 || height <= 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            return RenderCore(sheet, width, height, ramp);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private static Bitmap RenderCore(byte[] sheet, int width, int height, uint[] ramp)
     {
         var stride = width * 4;
-        var pixels = new byte[stride * height];
+        byte[] pixels = new byte[stride * height];
 
         for (var y = 0; y < height; y++)
         {
