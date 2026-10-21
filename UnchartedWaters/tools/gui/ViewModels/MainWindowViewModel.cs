@@ -27,6 +27,7 @@ public sealed class MainWindowViewModel : ObservableObject
         SaveCommand = new RelayCommand(_ => SaveRequested?.Invoke(this, EventArgs.Empty));
         SaveAsCommand = new RelayCommand(_ => SaveAsRequested?.Invoke(this, EventArgs.Empty));
         SearchCommand = new AsyncRelayCommand(_ => SearchAsync());
+        ReadColoursCommand = new AsyncRelayCommand(_ => ReadColoursAsync());
     }
 
     /// <summary>Raised when the user asks to open a cartridge.</summary>
@@ -49,6 +50,8 @@ public sealed class MainWindowViewModel : ObservableObject
     public ObservableCollection<SpriteGroupItem> SpriteGroups { get; } = new();
 
     public ObservableCollection<MemoryHitItem> SearchResults { get; } = new();
+
+    public ObservableCollection<CgramPalette> Palettes { get; } = new();
 
     public RelayCommand OpenCommand { get; }
 
@@ -293,6 +296,91 @@ public sealed class MainWindowViewModel : ObservableObject
         private set => Set(ref _searchStatus, value);
     }
 
+    /// <summary>Which palette of the game the tiles are drawn with.</summary>
+    public int SelectedPalette
+    {
+        get => _selectedPalette;
+        set
+        {
+            if (Set(ref _selectedPalette, value < 0 ? 0 : value))
+            {
+                Raise(nameof(SelectedPaletteName));
+                RefreshGraphics();
+            }
+        }
+    }
+
+    private int _selectedPalette;
+
+    /// <summary>The name of the palette the tiles are drawn with.</summary>
+    public string SelectedPaletteName =>
+        Palettes.Count > 0 && SelectedPalette < Palettes.Count
+            ? $"palette {SelectedPalette}"
+            : "grey ramp";
+
+    /// <summary>
+    /// Read the colours of the running game and use them for the tiles.
+    /// </summary>
+    private async Task ReadColoursAsync()
+    {
+        if (_rom is null)
+        {
+            return;
+        }
+
+        var tools = MemorySearch.FindToolsFolder();
+        if (tools is null)
+        {
+            Status = "The Python tooling was not found, the tiles stay grey.";
+            return;
+        }
+
+        try
+        {
+            var romPath = Path.Combine(Path.GetTempPath(), "ucw-colours.sfc");
+            await Task.Run(() => File.WriteAllBytes(romPath, _rom.WritableData));
+
+            var reader = new CgramReader(tools);
+            var palettes = await Task.Run(() => reader.ReadAsync(romPath, CancellationToken.None));
+
+            Palettes.Clear();
+            foreach (var palette in palettes)
+            {
+                Palettes.Add(palette);
+            }
+
+            // A brush of the window system may only be made on the thread
+            // of the window, so it is filled in here, after the colours
+            // have been read.
+            foreach (var palette in Palettes)
+            {
+                foreach (var entry in palette.Entries)
+                {
+                    entry.Brush = new Avalonia.Media.SolidColorBrush(
+                        Avalonia.Media.Color.FromRgb(entry.R, entry.G, entry.B));
+                }
+            }
+
+            if (Palettes.Count > 0)
+            {
+                Status = $"{Palettes.Count} palettes of the game read.";
+                Raise(nameof(SelectedPaletteName));
+                RefreshGraphics();
+            }
+            else
+            {
+                Status = "The colours of the game could not be read.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Status = $"the colours could not be read: {ex.Message}";
+        }
+    }
+
+    /// <summary>Read the colours of the running game.</summary>
+    public AsyncRelayCommand ReadColoursCommand { get; }
+
     /// <summary>Is a search running at the moment?</summary>
     public bool Searching
     {
@@ -507,14 +595,31 @@ public sealed class MainWindowViewModel : ObservableObject
     }
 
     /// <summary>
-    /// The shades used for the tile view.  Without a known palette the tiles
-    /// are drawn in a grey ramp so that the shapes are still readable.
+    /// The shades used for the tile view.
     /// </summary>
+    /// <remarks>
+    /// When the colours of the game have been read they are used, so that
+    /// the tiles look the way they look in the game.  Without them the
+    /// tiles are drawn in a grey ramp, so that the shapes are still
+    /// readable.
+    /// </remarks>
     private uint[] BuildRamp()
     {
-        var shades = SnesGraphics.Shades(BitsPerPixel);
         var ramp = new uint[16];
 
+        if (SelectedPalette >= 0 && SelectedPalette < Palettes.Count)
+        {
+            var colors = Palettes[SelectedPalette].Colors;
+            for (var i = 0; i < ramp.Length && i < colors.Count; i++)
+            {
+                var (r, g, b) = colors[i];
+                ramp[i] = Palette.PackArgb(r, g, b);
+            }
+
+            return ramp;
+        }
+
+        var shades = SnesGraphics.Shades(BitsPerPixel);
         for (var i = 0; i < ramp.Length; i++)
         {
             // Only the first "shades" entries exist in the current tile format.

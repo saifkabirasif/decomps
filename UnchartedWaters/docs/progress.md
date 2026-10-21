@@ -86,6 +86,23 @@ game writes the low byte of a colour into the CGRAM before the high one,
 so in the ROM the words are **little endian**.  `Palette.ReadPalette` and
 `Palette.WritePalette` in the editor take care of that.
 
+### The colours of the game
+
+The colour memory of the SNES holds 256 words of 15 bit colour.  The
+emulator can read it, and the new `tools/cgramread.py` helper boots the
+cartridge and dumps all sixteen palettes of the game:
+
+```
+palette  0: #000000 #985020 #C89860 #F8F8F8 #000000 #C85010 #E89830 #20D8D8 ...
+palette  3: #000000 #602000 #884030 #C88850 #F8B888 #B8B8C6 #D8D8E8 #F8F8F8 ...
+```
+
+The script keeps a copy of the palette of the picture that is on the
+screen at the work RAM address `$0CC8`; that copy is read as well.
+
+The editor uses the colours to draw the tiles, so they look the way they
+look in the game.
+
 ### Where the graphics are
 
 A lot of the graphics of the game is **not** in one of the 38 named
@@ -118,11 +135,12 @@ offset into it.
 * Find the table that points at the graphics, so that the editor can
   list them the way it lists the named blocks.  At the moment the places
   have to be found with `tools/vramfind.py`.
+* Find where the palettes come from.  The colours are put together at
+  run time out of pieces that are spread over the whole cartridge, so
+  they cannot be changed in the file yet.
 * Locate the SPC700 program and disassemble it.  The code that talks to
   the APU is around `$B860` (it writes `$2140`); the pointer to the
   program it downloads is set up just before that.
-* Map the palettes: the table that points at them is built at runtime by
-  the routine at `$9C3D`, so the addresses are not in the ROM as such.
 
 ## Phase 2 - milestone: boot + title screen (in progress)
 

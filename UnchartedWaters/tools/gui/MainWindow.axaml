@@ -144,6 +144,43 @@
             </ListBox>
           </DockPanel>
         </TabItem>
+
+        <TabItem Header="Palette">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8" Spacing="8">
+              <Button Content="Read the colours of the game"
+                      Command="{Binding ReadColoursCommand}" />
+              <TextBlock Text="Tiles use palette" VerticalAlignment="Center" />
+              <NumericUpDown Minimum="0" Maximum="15"
+                            Value="{Binding SelectedPalette, Mode=TwoWay}" />
+              <TextBlock Text="{Binding SelectedPaletteName}" VerticalAlignment="Center"
+                         Opacity="0.7" />
+            </StackPanel>
+            <ListBox ItemsSource="{Binding Palettes}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:CgramPalette">
+                  <StackPanel Margin="0,3">
+                    <TextBlock Text="{Binding Index, StringFormat='{}{0}'}"
+                               FontWeight="SemiBold" FontSize="11" />
+                    <ItemsControl ItemsSource="{Binding Entries}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <StackPanel Orientation="Horizontal" Spacing="2" />
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ColorEntry">
+                          <Border Width="26" Height="26" CornerRadius="3"
+                                  Background="{Binding Brush}" ToolTip.Tip="{Binding Hex}" />
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+        </TabItem>
       </TabControl>
     </Grid>
   </DockPanel>

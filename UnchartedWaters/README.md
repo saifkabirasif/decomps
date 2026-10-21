@@ -83,6 +83,9 @@ entry of the list is the whole cartridge.  The *Graphics* tab then takes
 a hexadecimal start offset into it, which is where the tiles of the
 characters and the other pictures live.
 
+The *Palette* tab reads the colours of the running game out of the
+emulator, and the tiles are then drawn the way the game draws them.
+
 The *Search* tab looks for a string in the memory of the running game
 and says which block of the cartridge it came from.  That finds the
 lines the script splits up with control codes, which cannot be read out
@@ -117,6 +120,7 @@ installed.
   cartridge keeps at bank `$00`, `$F800`.
 * `tools/memsearch.py` - looks for a string in the memory of the running
   game and reports which block of the cartridge it came from.
+* `tools/cgramread.py` - reads the colours of the running game.
 * `tools/vramfind.py` - looks for the video memory of the running game in
   the cartridge, which shows where the graphics live.
 * `tools/diff_rom.py` - per bank comparison against the original ROM.
