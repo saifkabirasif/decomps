@@ -73,6 +73,11 @@ make gui        # build it
 make gui-test   # run its unit tests
 ```
 
+It opens a cartridge, shows the 38 blocks of its asset table, and lets
+you look at them as hex, as tiles, as sprite groups and as text.  The
+text of the game, the dialogue included, can be edited and written back
+into the cartridge.
+
 It can also be started with a cartridge already open:
 
 ```sh

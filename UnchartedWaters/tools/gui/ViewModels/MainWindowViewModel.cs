@@ -227,15 +227,14 @@ public sealed class MainWindowViewModel : ObservableObject
             return false;
         }
 
-        var entry = new TextEntry(item.Offset, item.Text);
-        if (!TextScanner.Replace(_rom, entry, text))
+        if (!TextScanner.Replace(_rom, item.Entry, text))
         {
-            Status = "the string does not fit into the space it has";
+            Status = "the text does not fit into the string";
             return false;
         }
 
-        item.Text = text;
-        Status = "string updated";
+        item.Update(item.Entry with { Text = text });
+        Status = "text updated";
         return true;
     }
 
@@ -288,13 +287,12 @@ public sealed class MainWindowViewModel : ObservableObject
                 new string(text, 0, count)));
         }
 
-        // The "fdata" block holds the font metrics and the strings of the game.
-        if (entry.Name is "fdata" or "kdata" or "sgdata")
+        // The text of the game is in the script blocks, so every block is
+        // looked at.  The dialogue lives in the "s_*" blocks and the user
+        // interface strings in "root".
+        foreach (var text in TextScanner.Scan(_rom, start, length))
         {
-            foreach (var text in TextScanner.Scan(_rom, start, length))
-            {
-                Strings.Add(new TextItem(text.Offset, text.Text));
-            }
+            Strings.Add(new TextItem(text));
         }
 
         RefreshGraphics();

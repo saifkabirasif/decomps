@@ -15,13 +15,13 @@ public class TextBlockTests
     [Fact]
     public void FindsNulTerminatedRuns()
     {
-        var rom = BuildRom(0x41, 0x42, 0x43, 0x00, 0x44, 0x45, 0x00);
+        var rom = BuildRom(0x41, 0x42, 0x43, 0x00, 0x44, 0x45, 0x46, 0x00);
 
-        var strings = TextScanner.Scan(rom, 0, 7);
+        var strings = TextScanner.Scan(rom, 0, 8);
 
         Assert.Equal(2, strings.Count);
         Assert.Equal("ABC", strings[0].Text);
-        Assert.Equal("DE", strings[1].Text);
+        Assert.Equal("DEF", strings[1].Text);
     }
 
     [Fact]
@@ -29,10 +29,45 @@ public class TextBlockTests
     {
         var rom = BuildRom(0x41, 0x00, 0x42, 0x43, 0x00);
 
-        var strings = TextScanner.Scan(rom, 0, 5);
+        var strings = TextScanner.Scan(rom, 0, 5, minimumLength: 2);
 
         Assert.Single(strings);
         Assert.Equal("BC", strings[0].Text);
+    }
+
+    [Fact]
+    public void IgnoresRunsThatAreNotTerminated()
+    {
+        // A run that does not end with a NUL is a piece of the script.
+        var rom = BuildRom(0x41, 0x42, 0x43, 0x44);
+
+        Assert.Empty(TextScanner.Scan(rom, 0, 4));
+    }
+
+    [Fact]
+    public void KeepsTheLineBreaksOfTheText()
+    {
+        var rom = BuildRom(0x57, 0x65, 0x0A, 0x4F, 0x6B, 0x00);
+
+        var strings = TextScanner.Scan(rom, 0, 6);
+
+        Assert.Single(strings);
+        Assert.Equal("We\nOk", strings[0].Text);
+    }
+
+    [Fact]
+    public void KeepsTheControlCodesOutOfTheText()
+    {
+        // An escape byte with a command byte belongs to the entry, not to
+        // the text.
+        var rom = BuildRom(0x41, 0x42, TextScanner.Escape, 0x57, 0x43, 0x00);
+
+        var strings = TextScanner.Scan(rom, 0, 6);
+
+        Assert.Single(strings);
+        Assert.Equal("ABC", strings[0].Text);
+        Assert.Equal(2, strings[0].ControlLength);
+        Assert.Equal(5, strings[0].Length);
     }
 
     [Fact]
@@ -43,14 +78,14 @@ public class TextBlockTests
         var strings = TextScanner.Scan(rom, 0, 4);
 
         Assert.Equal(0, strings[0].Offset);
-        Assert.Equal(3, strings[0].Length);
+        Assert.Equal(3, strings[0].TextLength);
     }
 
     [Fact]
     public void ReplacesAStringInPlace()
     {
         var rom = BuildRom(0x41, 0x42, 0x43, 0x00, 0x44, 0x00);
-        var entry = new TextEntry(0, "ABC");
+        var entry = TextScanner.Scan(rom, 0, 6)[0];
 
         Assert.True(TextScanner.Replace(rom, entry, "XYZ"));
 
@@ -58,35 +93,35 @@ public class TextBlockTests
     }
 
     [Fact]
-    public void RefusesToGrowAStringOverTheNextOne()
+    public void KeepsTheControlCodesWhenReplacing()
     {
-        // "AB" is followed directly by "CD", there is no room in between.
-        var rom = BuildRom(0x41, 0x42, 0x00, 0x43, 0x44, 0x00);
-        var entry = new TextEntry(0, "AB");
+        var rom = BuildRom(0x41, 0x42, TextScanner.Escape, 0x57, 0x43, 0x00);
+        var entry = TextScanner.Scan(rom, 0, 6)[0];
 
-        Assert.False(TextScanner.Replace(rom, entry, "ABCD"));
+        Assert.True(TextScanner.Replace(rom, entry, "XY"));
 
-        Assert.Equal(new byte[] { 0x41, 0x42, 0x00, 0x43, 0x44, 0x00 }, rom.WritableData[..6]);
+        Assert.Equal(
+            new byte[] { 0x58, 0x59, TextScanner.Escape, 0x57, 0x20, 0x00 },
+            rom.WritableData[..6]);
     }
 
     [Fact]
-    public void GrowsAStringIntoTheFreeSpaceBehindIt()
+    public void PadsAShorterTextWithSpaces()
     {
-        // "AB" is followed by three zero bytes and then "CD".
-        var rom = BuildRom(0x41, 0x42, 0x00, 0x00, 0x00, 0x00, 0x43, 0x44, 0x00);
-        var entry = new TextEntry(0, "AB");
+        var rom = BuildRom(0x41, 0x42, 0x43, 0x00);
+        var entry = TextScanner.Scan(rom, 0, 4)[0];
 
-        Assert.True(TextScanner.Replace(rom, entry, "ABCDE"));
+        Assert.True(TextScanner.Replace(rom, entry, "X"));
 
-        Assert.Equal(new byte[] { 0x41, 0x42, 0x43, 0x44, 0x45, 0x00, 0x43, 0x44, 0x00 }, rom.WritableData[..9]);
+        Assert.Equal(new byte[] { 0x58, 0x20, 0x20, 0x00 }, rom.WritableData[..4]);
     }
 
     [Fact]
-    public void RefusesToReplaceAStringThatIsNotTerminated()
+    public void RefusesToMakeTheTextLonger()
     {
-        var rom = BuildRom(0x41, 0x42, 0x43, 0x44);
-        var entry = new TextEntry(0, "ABC");
+        var rom = BuildRom(0x41, 0x42, 0x43, 0x00);
+        var entry = TextScanner.Scan(rom, 0, 4)[0];
 
-        Assert.False(TextScanner.Replace(rom, entry, "XY"));
+        Assert.False(TextScanner.Replace(rom, entry, "TOO LONG"));
     }
 }

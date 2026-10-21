@@ -24,14 +24,17 @@ public sealed class TextItem : ObservableObject
 {
     private string _text;
 
-    public TextItem(int offset, string text)
+    public TextItem(TextEntry entry)
     {
-        Offset = offset;
-        _text = text;
+        Entry = entry;
+        _text = entry.Text;
     }
 
+    /// <summary>The string inside the cartridge.</summary>
+    public TextEntry Entry { get; private set; }
+
     /// <summary>File offset of the string inside the ROM image.</summary>
-    public int Offset { get; }
+    public int Offset => Entry.Offset;
 
     /// <summary>The text of the string.</summary>
     public string Text
@@ -42,6 +45,25 @@ public sealed class TextItem : ObservableObject
 
     /// <summary>The offset as it is shown in the list.</summary>
     public string Location => $"${Offset:X6}";
+
+    /// <summary>How many characters the string has.</summary>
+    public int Length => Entry.TextLength;
+
+    /// <summary>Show the control codes of the string, if it has any.</summary>
+    public string ControlCodes => Entry.ControlLength > 0
+        ? $"{Entry.ControlLength} control codes"
+        : string.Empty;
+
+    /// <summary>Take over the text after it was written into the cartridge.</summary>
+    public void Update(TextEntry entry)
+    {
+        Entry = entry;
+        _text = entry.Text;
+        Raise(nameof(Text));
+        Raise(nameof(Entry));
+        Raise(nameof(Length));
+        Raise(nameof(ControlCodes));
+    }
 }
 
 /// <summary>One colour of the palette view.</summary>

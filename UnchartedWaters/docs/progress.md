@@ -57,6 +57,28 @@ the five byte header it holds twenty records of 51 bytes:
 The record after the last one is empty, which ends the table.  The editor
 shows the groups in its *Sprites* tab.
 
+### The script blocks and the text
+
+The blocks that are not raw data are **scripts**: a stream of bytes that
+tells the game what happens, with the text of the dialogue written into
+the stream in the clear.  A string is a run of text that ends with a NUL
+byte.  Inside the run there can be
+
+* a line break, `$0A`, and
+* a control code: the escape byte `$1B` followed by one command byte.
+
+The control codes are commands of the script, a change of colour or a
+wait for example, so they are kept when a string is edited.
+
+That means the whole text of the game can be read and changed, and the
+editor does exactly that.  It was checked by editing a line of the user
+interface text, saving the cartridge and booting the result in Mesen:
+the new text shows up in the memory of the running game.
+
+The scripts are looked at from the outside, the interpreter is still
+unknown.  The routine at `$9ABE` looks a block up by name in the table at
+`$00:$F800` and the routine at `$9C7C` walks a table of 14 byte records.
+
 ### Colours
 
 A palette is sixteen 16 bit words in the order `0bbbbggggrrrrrrrr`.  The
@@ -68,10 +90,11 @@ so in the ROM the words are **little endian**.  `Palette.ReadPalette` and
 
 * Find the tile graphics themselves.  They are **not** in the four raw
   blocks: neither `sgdata`, `cbmap0` nor `kdata` hold a plain 4bpp tile
-  set, so the graphics are either inside the encoded blocks or behind
+  set, so the graphics are either inside the script blocks or behind
   another format.  The sprite groups only name the tiles, they do not
   carry them.
-* Write a decoder for the encoded script blocks.
+* Work out the commands of the script, so that a line of dialogue can be
+  given a new colour or a new pause.
 * Locate the SPC700 program and disassemble it.  The code that talks to
   the APU is around `$B860` (it writes `$2140`); the pointer to the
   program it downloads is set up just before that.
@@ -128,8 +151,8 @@ What works today:
 * Open a cartridge (also from the command line) and list the 38 assets.
 * Hex view of the selected asset.
 * Graphics view that decodes the tiles of the selected asset.
-* Text view that lists the NUL terminated strings of the font and dialogue
-  blocks, and writes an edited string back into the image.
+* Text view that lists the text of **every** block, the dialogue of the
+  game included, and writes an edited line back into the image.
 * Sprites view that lists the twenty sprite groups of `sgdata` with their
   animation frames.
 * Save the cartridge.
