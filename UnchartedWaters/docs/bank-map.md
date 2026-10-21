@@ -125,6 +125,27 @@ Only the introduction was watched, so this is the start of the list and
 not the end of it: every other picture of the game is still to be found
 by playing through it.
 
+### The tables of the graphics and the palettes
+
+The engine keeps four tables in the work memory, and the graphics of the
+game are put into the video memory through them (`src/graphics_groups.s`):
+
+| Table | What it holds |
+|---|---|
+| `$0B96` | the list of the graphics blocks: three bytes each, the address low, the address high and the bank.  Every block is copied into the video memory with a DMA |
+| `$0BBB`, `$0BC3` | where the sprites of a group are put on the screen |
+| `$0BD4`, `$0C94` | a second list of graphics blocks |
+| `$0CC8` | the colours: fifteen bit words, low byte first, copied into the colour memory two bytes at a time |
+
+The tables in the work memory are **put together while the game runs**,
+so the cartridge does not hold them as they are.  The graphics that are
+loaded are the ones the script asks for.
+
+The colours are copied into `$0CC8` by the routine at `$B812`, which
+reads them one by one from the pointer in the direct page at `$0000`.
+That routine is one of the handlers of the table at `$9A60`, which is
+where the graphics groups are worked out.
+
 ### The script programs
 
 Every script program starts with the mark `4C 03` and has the address

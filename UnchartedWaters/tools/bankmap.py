@@ -195,7 +195,26 @@ def _load_mesen():
     return Mesen, MEMORY_TYPE_SNES_VIDEO_RAM, MEMORY_TYPE_SNES_WORK_RAM
 
 
-def sweep(seconds: float, keys: tuple[str, ...], rom_path: Path) -> dict:
+def parse_script(text: str) -> list[tuple[float, str]]:
+    """Read a list of "wait:key" steps, e.g. "170:Enter,5:Down,3:X".
+
+    The wait is the number of seconds to sit still before the key is
+    pressed.  The game takes a long time to come up, and the keys only
+    do something once it has.
+    """
+    steps = []
+    for part in text.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        wait, _, key = part.partition(":")
+        steps.append((float(wait), key.strip() or "Enter"))
+    return steps
+
+
+def sweep(seconds: float, keys: tuple[str, ...], rom_path: Path,
+          script: list[tuple[float, str]] | None = None,
+          shots: Path | None = None) -> dict:
     """Watch the game and report where the code and the graphics are.
 
     The program counter is sampled over and over, which shows which
@@ -221,19 +240,33 @@ def sweep(seconds: float, keys: tuple[str, ...], rom_path: Path) -> dict:
     deadline = time.time() + seconds
     next_key = time.time() + 2.0
     key_at = 0
+    steps = list(script or [])
+    step_at = 0
     while time.time() < deadline:
         try:
             executed[mesen.program_counter()] += 1
         except Exception:
             break
-        if time.time() >= next_key and keys:
+        now = time.time()
+        if steps and step_at < len(steps) and now >= next_key:
+            wait, key = steps[step_at]
+            try:
+                mesen.tap(key, 3)
+            except Exception:
+                pass
+            step_at += 1
+            next_key = now + wait
+            pictures.append(mesen.read_memory(video_type, 0, 0x10000))
+            _take_shot(mesen, shots, step_at)
+        elif not steps and now >= next_key and keys:
             try:
                 mesen.tap(keys[key_at % len(keys)], 3)
             except Exception:
                 pass
             key_at += 1
-            next_key = time.time() + 2.0
+            next_key = now + 2.0
             pictures.append(mesen.read_memory(video_type, 0, 0x10000))
+            _take_shot(mesen, shots, key_at)
 
     vram = mesen.read_memory(video_type, 0, 0x10000)
     mesen.release()
@@ -284,6 +317,22 @@ def sweep(seconds: float, keys: tuple[str, ...], rom_path: Path) -> dict:
     }
 
 
+def _take_shot(mesen, shots: Path | None, number: int) -> None:
+    """Write a picture of the screen, so that the walk can be looked at."""
+    if shots is None:
+        return
+    try:
+        shots.mkdir(parents=True, exist_ok=True)
+        mesen._lib.TakeScreenshot()
+        time.sleep(0.3)
+        folder = Path.home() / ".config" / "Mesen2" / "Screenshots"
+        files = sorted(folder.glob("*.png"), key=lambda f: f.stat().st_mtime)
+        if files:
+            (shots / f"{number:03d}.png").write_bytes(files[-1].read_bytes())
+    except Exception:
+        pass
+
+
 #: Where the places the game was seen are kept between the runs.
 COVERAGE_FILE = Path("build/coverage.json")
 
@@ -312,6 +361,11 @@ def main() -> int:
                         help="watch the game for this many seconds")
     parser.add_argument("--keys", default=",".join(KEYS),
                         help="the keys to press before watching")
+    parser.add_argument("--shots", type=Path, default=None,
+                        help="a folder to write the pictures of the walk into")
+    parser.add_argument("--script", default=None,
+                        help="the steps to walk through the game, e.g. "
+                             "'170:Enter,4:Enter,6:Down,2:Enter'")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -353,7 +407,8 @@ def main() -> int:
 
     if args.coverage > 0:
         keys = tuple(k for k in args.keys.split(",") if k)
-        result["coverage"] = sweep(args.coverage, keys, rom_path)
+        script = parse_script(args.script) if args.script else None
+        result["coverage"] = sweep(args.coverage, keys, rom_path, script, args.shots)
         # Keep the places the game was seen, so that the next run of the
         # map can start the tracer there.
         cache = Path(__file__).resolve().parents[1] / COVERAGE_FILE
