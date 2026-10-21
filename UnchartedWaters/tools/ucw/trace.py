@@ -14,6 +14,12 @@ from .disasm import Insn, decode_65816
 from .map import Mapping
 from .rom import Rom
 
+#: The instructions that really are branches.  BRK and BIT start with a
+#: B as well, but they are not branches.
+BRANCHES = frozenset(
+    {"BCC", "BCS", "BNE", "BEQ", "BPL", "BMI", "BVC", "BVS", "BRA"}
+)
+
 
 @dataclass
 class Function:
@@ -46,18 +52,35 @@ class TraceResult:
 class Tracer:
     """Follows code from entry points using a recursive descent algorithm."""
 
-    def __init__(self, rom: Rom, mapping: Mapping, max_insns: int = 4000) -> None:
+    def __init__(
+        self,
+        rom: Rom,
+        mapping: Mapping,
+        max_insns: int = 4000,
+        long_call_banks: set[int] | None = None,
+    ) -> None:
         self.rom = rom
         self.mapping = mapping
         self.max_insns = max_insns
+        # The banks that hold code.  A long call into any other bank is
+        # not followed: a table of long addresses looks exactly like a
+        # row of long calls, and following it finds code that is not
+        # there.
+        self.long_call_banks = long_call_banks
         # Register widths: the M flag (accumulator) and the X flag (index).
         # The game spends most of its time in 16 bit mode.
         self.m16 = True
         self.x16 = True
         self.result = TraceResult()
-        self._visited: set[tuple[int, int]] = set()
+        self._visited: set[tuple[int, int, bool, bool]] = set()
 
     # -- helpers -----------------------------------------------------------
+    def _may_hold_code(self, bank: int) -> bool:
+        """May this bank hold code that is worth following?"""
+        if self.long_call_banks is None:
+            return True
+        return bank in self.long_call_banks
+
     def _read(self, bank: int, addr: int, count: int) -> bytes | None:
         """Read `count` bytes of CPU visible memory."""
         out = bytearray()
@@ -77,11 +100,28 @@ class Tracer:
                 self.result.data.add(phys)
 
     # -- tracing -----------------------------------------------------------
-    def trace(self, bank: int, addr: int, depth: int = 0) -> Function | None:
-        """Trace a routine at bank:addr, returning the function it found."""
+    def trace(
+        self,
+        bank: int,
+        addr: int,
+        depth: int = 0,
+        m16: bool | None = None,
+        x16: bool | None = None,
+    ) -> Function | None:
+        """Trace a routine at bank:addr, returning the function it found.
+
+        The width of the accumulator and of the index registers is part of
+        the state of the machine, so it is handed on to the routine that
+        is called and is still the same when it comes back.  Getting this
+        wrong makes the tracer read the code one byte off.
+        """
         if depth > 64:
             return None
-        key = (bank, addr)
+        if m16 is None:
+            m16 = self.m16
+        if x16 is None:
+            x16 = self.x16
+        key = (bank, addr, m16, x16)
         if key in self._visited:
             return self.result.functions.get(addr)
         self._visited.add(key)
@@ -97,9 +137,14 @@ class Tracer:
 
             raw = self._read(cur_bank, cur_addr, 4)
             if raw is None:
-                self.result.unresolved.append((cur_addr, "unmapped"))
+                if cur_addr < 0x8000:
+                    # The lower half of every bank is work RAM, never ROM.
+                    # The game runs the script programs from there.
+                    self.result.unresolved.append((cur_addr, "work RAM"))
+                else:
+                    self.result.unresolved.append((cur_addr, "unmapped"))
                 break
-            insn = decode_65816(raw, cur_addr, self.m16, self.x16)
+            insn = decode_65816(raw, cur_addr, m16, x16)
             if insn.mnemonic == ".byte":
                 # Not a valid instruction: we have run into data.
                 phys = self.mapping.to_phys(cur_bank, cur_addr)
@@ -130,9 +175,9 @@ class Tracer:
                 # (16 bit), SEP sets them (8 bit).
                 flags = raw[1] if len(raw) > 1 else 0
                 if flags & 0x20:
-                    self.m16 = mnemonic == "REP"
+                    m16 = mnemonic == "REP"
                 if flags & 0x10:
-                    self.x16 = mnemonic == "REP"
+                    x16 = mnemonic == "REP"
 
             if mnemonic in ("JSR", "JSL"):
                 if mnemonic == "JSR":
@@ -140,7 +185,7 @@ class Tracer:
                     if target is None:
                         break
                     func.calls.add(target)
-                    self.trace(cur_bank, target, depth + 1)
+                    self.trace(cur_bank, target, depth + 1, m16, x16)
                     # return address
                     cur_addr = (cur_addr + insn.size) & 0xFFFF
                     continue
@@ -151,7 +196,8 @@ class Tracer:
                 target_bank = (long >> 16) & 0xFF
                 target_addr = long & 0xFFFF
                 func.calls.add(long)
-                self.trace(target_bank, target_addr, depth + 1)
+                if self._may_hold_code(target_bank):
+                    self.trace(target_bank, target_addr, depth + 1, m16, x16)
                 # The call leaves the bank alone, only the address moves on.
                 cur_addr = (cur_addr + insn.size) & 0xFFFF
                 continue
@@ -166,7 +212,7 @@ class Tracer:
                     if target is None:
                         break
                     func.tail_calls.add(target)
-                    self.trace(cur_bank, target, depth + 1)
+                    self.trace(cur_bank, target, depth + 1, m16, x16)
                     break
                 long = self._target24(operand)
                 if long is None:
@@ -174,17 +220,18 @@ class Tracer:
                 target_bank = (long >> 16) & 0xFF
                 target_addr = long & 0xFFFF
                 func.tail_calls.add(long)
-                self.trace(target_bank, target_addr, depth + 1)
+                if self._may_hold_code(target_bank):
+                    self.trace(target_bank, target_addr, depth + 1, m16, x16)
                 break
 
-            if mnemonic.startswith("B") and mnemonic not in ("BIT", "BRA"):
+            if mnemonic in BRANCHES:
                 # conditional branch: follow the target, continue after it
                 target = self._target16(operand)
                 if target is None:
                     cur_addr = (cur_addr + insn.size) & 0xFFFF
                     continue
                 func.tail_calls.add(target)
-                self.trace(cur_bank, target, depth + 1)
+                self.trace(cur_bank, target, depth + 1, m16, x16)
                 cur_addr = (cur_addr + insn.size) & 0xFFFF
                 continue
 
@@ -237,9 +284,10 @@ def trace_rom(
     rom: Rom,
     mapping: Mapping,
     entries: list[tuple[int, int]],
+    long_call_banks: set[int] | None = None,
 ) -> TraceResult:
     """Trace every entry point and return the combined result."""
-    tracer = Tracer(rom, mapping)
+    tracer = Tracer(rom, mapping, long_call_banks=long_call_banks)
     for bank, addr in entries:
         tracer.trace(bank, addr)
     return tracer.result
