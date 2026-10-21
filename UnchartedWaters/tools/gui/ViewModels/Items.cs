@@ -108,6 +108,34 @@ public sealed class PaletteItem : ObservableObject
     public string Hex => $"#{R:X2}{G:X2}{B:X2}";
 }
 
+/// <summary>One hit of a search in the memory of the running game.</summary>
+public sealed class MemoryHitItem
+{
+    public MemoryHitItem(MemoryHit hit)
+    {
+        Hit = hit;
+    }
+
+    public MemoryHit Hit { get; }
+
+    /// <summary>Where the text was found in the work RAM.</summary>
+    public string MemoryAddress => Hit.MemoryAddress;
+
+    /// <summary>The blocks of the cartridge the bytes came from.</summary>
+    public string Source => Hit.Blocks.Count > 0
+        ? string.Join(", ", Hit.Blocks.Select(b => $"{b.Name} +{b.AssetOffset:X4}"))
+        : "not in the cartridge";
+
+    /// <summary>The text around the hit.</summary>
+    public string Text => Hit.Text.Replace("\r", "\\r").Replace("\n", "\\n")
+        .Replace("\x1b", "<ESC>");
+
+    /// <summary>The block the hit points at, if any.</summary>
+    public MemoryBlock? FirstBlock => Hit.Blocks.Count > 0 ? Hit.Blocks[0] : null;
+
+    public override string ToString() => $"{MemoryAddress}  {Source}";
+}
+
 /// <summary>One asset of the cartridge as it is shown in the list.</summary>
 public sealed class AssetItem
 {

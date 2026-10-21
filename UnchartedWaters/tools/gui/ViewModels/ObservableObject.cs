@@ -45,3 +45,46 @@ public sealed class RelayCommand : ICommand
 
     public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 }
+
+/// <summary>A command that runs an asynchronous piece of work.</summary>
+public sealed class AsyncRelayCommand : ICommand
+{
+    private readonly Func<object?, Task> _execute;
+    private readonly Func<object?, bool>? _canExecute;
+    private bool _running;
+
+    public AsyncRelayCommand(Func<object?, Task> execute, Func<object?, bool>? canExecute = null)
+    {
+        _execute = execute;
+        _canExecute = canExecute;
+    }
+
+    public event EventHandler? CanExecuteChanged;
+
+    public bool CanExecute(object? parameter) => !_running && (_canExecute?.Invoke(parameter) ?? true);
+
+    public async void Execute(object? parameter) => await ExecuteAsync(parameter).ConfigureAwait(true);
+
+    /// <summary>Run the command and wait for it to finish.</summary>
+    public async Task ExecuteAsync(object? parameter)
+    {
+        if (!CanExecute(parameter))
+        {
+            return;
+        }
+
+        _running = true;
+        RaiseCanExecuteChanged();
+        try
+        {
+            await _execute(parameter).ConfigureAwait(true);
+        }
+        finally
+        {
+            _running = false;
+            RaiseCanExecuteChanged();
+        }
+    }
+
+    public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+}

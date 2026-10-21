@@ -155,6 +155,10 @@ What works today:
   game included, and writes an edited line back into the image.
 * Sprites view that lists the twenty sprite groups of `sgdata` with their
   animation frames.
+* Search view that looks for a string in the memory of the running game
+  and says which block of the cartridge it came from.  That finds the
+  strings the script splits up with control codes, which cannot be read
+  out of the cartridge directly.
 * Save the cartridge.
 
 The tests cover the parts that are easy to get subtly wrong: the little

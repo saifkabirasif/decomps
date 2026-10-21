@@ -16,12 +16,17 @@ public sealed class MainWindowViewModel : ObservableObject
     private BitsPerPixel _bitsPerPixel = BitsPerPixel.Four;
     private int _graphicsColumns = 16;
     private int _graphicsOffset;
+    private string _searchText = string.Empty;
+    private string _searchKeys = string.Empty;
+    private string _searchStatus = "Search the memory of the running game for a string.";
+    private bool _searching;
 
     public MainWindowViewModel()
     {
         OpenCommand = new RelayCommand(_ => OpenRequested?.Invoke(this, EventArgs.Empty));
         SaveCommand = new RelayCommand(_ => SaveRequested?.Invoke(this, EventArgs.Empty));
         SaveAsCommand = new RelayCommand(_ => SaveAsRequested?.Invoke(this, EventArgs.Empty));
+        SearchCommand = new AsyncRelayCommand(_ => SearchAsync());
     }
 
     /// <summary>Raised when the user asks to open a cartridge.</summary>
@@ -43,11 +48,15 @@ public sealed class MainWindowViewModel : ObservableObject
 
     public ObservableCollection<SpriteGroupItem> SpriteGroups { get; } = new();
 
+    public ObservableCollection<MemoryHitItem> SearchResults { get; } = new();
+
     public RelayCommand OpenCommand { get; }
 
     public RelayCommand SaveCommand { get; }
 
     public RelayCommand SaveAsCommand { get; }
+
+    public AsyncRelayCommand SearchCommand { get; }
 
     public string Title
     {
@@ -218,6 +227,126 @@ public sealed class MainWindowViewModel : ObservableObject
 
     /// <summary>The path the cartridge was loaded from.</summary>
     public string? FilePath => _filePath;
+
+    /// <summary>The text to look for in the running game.</summary>
+    public string SearchText
+    {
+        get => _searchText;
+        set => Set(ref _searchText, value);
+    }
+
+    /// <summary>
+    /// The keys to press before the search, separated by commas.
+    /// </summary>
+    /// <remarks>
+    /// The text of the game is only in the memory of the game once it has
+    /// been shown, so the game has to be walked to the right place first.
+    /// </remarks>
+    public string SearchKeys
+    {
+        get => _searchKeys;
+        set => Set(ref _searchKeys, value);
+    }
+
+    /// <summary>What the last search did.</summary>
+    public string SearchStatus
+    {
+        get => _searchStatus;
+        private set => Set(ref _searchStatus, value);
+    }
+
+    /// <summary>Is a search running at the moment?</summary>
+    public bool Searching
+    {
+        get => _searching;
+        private set => Set(ref _searching, value);
+    }
+
+    /// <summary>
+    /// Look for the search text in the memory of the running game.
+    /// </summary>
+    private async Task SearchAsync()
+    {
+        SearchResults.Clear();
+
+        if (_rom is null)
+        {
+            SearchStatus = "Open a cartridge first.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(SearchText))
+        {
+            SearchStatus = "Type what to look for.";
+            return;
+        }
+
+        var tools = MemorySearch.FindToolsFolder();
+        if (tools is null)
+        {
+            SearchStatus =
+                "The Python tooling was not found. Set UCW_TOOLS to the folder " +
+                "that holds memsearch.py.";
+            return;
+        }
+
+        Searching = true;
+        SearchStatus = "Running the game...";
+
+        try
+        {
+            // The search has to see the changes the user made, so the
+            // cartridge is written out first.  The file is written in one
+            // go: the editor is busy with the window at this point and the
+            // asynchronous file operations of the runtime do not always
+            // finish while the window system holds the thread pool.
+            var romPath = Path.Combine(Path.GetTempPath(), "ucw-search.sfc");
+            await Task.Run(() => File.WriteAllBytes(romPath, _rom.WritableData));
+
+            var keys = SearchKeys
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            var search = new MemorySearch(tools);
+            var outcome = await Task.Run(() => search.RunAsync(
+                romPath, SearchText, keys, 120, CancellationToken.None));
+
+            foreach (var hit in outcome.Hits)
+            {
+                SearchResults.Add(new MemoryHitItem(hit));
+            }
+
+            if (!outcome.Ok)
+            {
+                SearchStatus = outcome.Error ?? "the search failed.";
+            }
+            else
+            {
+                SearchStatus = outcome.Hits.Count == 0
+                    ? $"'{SearchText}' was not found in the memory of the game."
+                    : $"{outcome.Hits.Count} hits for '{SearchText}'.";
+            }
+        }
+        catch (Exception ex)
+        {
+            SearchStatus = $"the search failed: {ex.Message}";
+        }
+        finally
+        {
+            Searching = false;
+        }
+    }
+
+    /// <summary>Select the asset a hit came from and show the place.</summary>
+    public void GoToBlock(MemoryBlock block)
+    {
+        var asset = Assets.FirstOrDefault(a => a.Entry.Name == block.Name);
+        if (asset is not null)
+        {
+            SelectedAsset = asset;
+        }
+
+        Status = $"{block.Name} at bank ${Format.Hex(block.Bank, 2)}:{Format.Hex(block.Address, 4)}";
+    }
 
     /// <summary>Write an edited string back into the cartridge.</summary>
     public bool ApplyString(TextItem item, string text)

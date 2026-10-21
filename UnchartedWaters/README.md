@@ -78,6 +78,13 @@ you look at them as hex, as tiles, as sprite groups and as text.  The
 text of the game, the dialogue included, can be edited and written back
 into the cartridge.
 
+The *Search* tab looks for a string in the memory of the running game
+and says which block of the cartridge it came from.  That finds the
+lines the script splits up with control codes, which cannot be read out
+of the cartridge directly.  It needs the Python tooling of the
+repository, which it looks for above the program; `UCW_TOOLS` points at
+it when it sits somewhere else.
+
 It can also be started with a cartridge already open:
 
 ```sh
@@ -103,6 +110,8 @@ installed.
   input, reads CPU/VRAM/WRAM/SPC memory.
 * `tools/asset_table.py` - reads the table of the 38 named data blocks the
   cartridge keeps at bank `$00`, `$F800`.
+* `tools/memsearch.py` - looks for a string in the memory of the running
+  game and reports which block of the cartridge it came from.
 * `tools/diff_rom.py` - per bank comparison against the original ROM.
 * `tools/gui/UnchartedWaters.Core/` - the same ROM and asset handling for
   the editor, with unit tests next to it.
