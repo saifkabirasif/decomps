@@ -121,6 +121,9 @@ installed.
 * `tools/memsearch.py` - looks for a string in the memory of the running
   game and reports which block of the cartridge it came from.
 * `tools/cgramread.py` - reads the colours of the running game.
+* `tools/scriptdiff.py` - patches one byte of a script block, boots the
+  cartridge and compares the video memory, which shows what the byte
+  does.
 * `tools/vramfind.py` - looks for the video memory of the running game in
   the cartridge, which shows where the graphics live.
 * `tools/diff_rom.py` - per bank comparison against the original ROM.

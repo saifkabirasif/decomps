@@ -128,10 +128,54 @@ Because of that the editor now offers the whole cartridge as the first
 entry of the asset list, and the graphics view takes a hexadecimal start
 offset into it.
 
+### The script blocks
+
+The blocks that are not raw data hold the script of the game: the text
+of the dialogue in the clear, with other bytes in between that the game
+interprets.  All 38 blocks together hold 2560 strings and 41,544 bytes
+of readable text, which is 19% of them.
+
+What is known about the format:
+
+* A string is a run of text that ends with a NUL byte.  Inside the run
+  there can be a line break (`$0A`) and a control code, the escape byte
+  `$1B` followed by one command byte.
+* The control codes sit **inside** the text, sometimes even inside a
+  word.  That is why "Ah, the legendary" and the next word are two
+  strings, and why a sentence is spread over several of them.
+* The bytes in between are not 65816 code, they do not point at the
+  strings with a 16 bit offset, and they are not a dense LZ stream
+  either.  What they are is still open.
+* Every block starts with the two bytes `4C 03`.  The two bytes behind
+  them name the kind of the script: `00 00` for the raw blocks, and
+  `20 96`, `20 A5`, `20 B0`, `20 B8`, `20 D0` or `20 20` for the
+  six kinds of script.
+
+`tools/scriptdiff.py` works out what the bytes in between do: it
+patches one byte of a block, boots the cartridge in the headless Mesen
+harness and compares the video memory with the unpatched cartridge.
+
+Getting a clean measurement out of that took some doing:
+
+* The **video memory** is the only usable measurement.  The work memory
+  of the game moves by some 14,000 bytes between two runs, the video
+  memory does not move at all.
+* The game shows its text in a box and moves on after a while, so the
+  picture has to be taken at the same frame every time.  The tool looks
+  for the picture of the introduction, remembers the frame it was on and
+  then waits for exactly that frame in every later run.  Pass `--frame`
+  to skip the search.
+
+With that, patching one letter of a line of the introduction changes
+6868 bytes of the video memory, while patching a byte of the text that
+is not on the screen changes nothing.  That is the tool working.
+
 ### Open items
 
-* Work out the commands of the script, so that a line of dialogue can be
-  given a new colour or a new pause.
+* Find the commands of the script, so that a line of dialogue can be
+  given a new colour or a new pause.  The tool to find them is ready;
+  the sweep over the code region of a block is a matter of time, at
+  about 45 seconds a byte.
 * Find the table that points at the graphics, so that the editor can
   list them the way it lists the named blocks.  At the moment the places
   have to be found with `tools/vramfind.py`.
