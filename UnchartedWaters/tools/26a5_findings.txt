@@ -1,0 +1,56 @@
+## 26 A5 Pattern Analysis in Encoded Script Blocks
+
+### Overview
+The `26 A5` byte pattern appears in only 2 of 38 asset blocks in the cartridge, and appears to be a compressed palette reference format related to the palette address $02:A526.
+
+### Occurrences
+
+#### Root block (bank $01): 4 occurrences
+- **offset 0E8D** (prog rel 0E6D from entry):
+  - 4 bytes after `26 A5`: `6A EF D7 A2`
+  - 4 bytes before `26 A5`: `D7 73 2E 40` (includes `40` opcode)
+  
+- **offset 0EDC** (prog rel 0EBC from entry):
+  - 4 bytes after `26 A5`: `6A EF D7 F1`
+  - 4 bytes before `26 A5`: `8E BB B0 DD`
+  - `26 A5` appears directly (without preceding `40`)
+
+- **offset 610C** (prog rel 60EC from entry):
+  - 4 bytes after `26 A5`: `93 F1 D7 3B`
+  - 4 bytes before `26 A5`: `D7 15 81 40` (includes `40` opcode)
+  - Note: `40 26 A5` pattern present
+
+- **offset 616F** (prog rel 614F from entry):
+  - 4 bytes after `26 A5`: `93 F1 D7 C2`
+  - 4 bytes before `26 A5`: `D7 78 81 40` (includes `40` opcode)
+  - Note: `40 26 A5` pattern present
+
+#### Koueki block (bank $08): 1 occurrence
+- **offset 0640** (prog rel 0590 from entry):
+  - 4 bytes after `26 A5`: `69 EF 5E B5`
+  - 4 bytes before `26 A5`: `27 0A 8F 12`
+  - Followed by: `5E B5 8C B4 E6 BB 29 09 B0 25 40 2B 38 E9 4E 88 02 D8 8C B6`
+  - Note: `02` appears near the end and `40 2B` appears after `B0 25`
+
+### Key Patterns
+
+1. **`40 26 A5`** appears in 3 of 4 root occurrences before `26 A5`. The `40` opcode (script VM "op $40") may indicate "load palette using 26 A5 address".
+
+2. **After `26 A5`**, the next bytes are consistently `6A EF` or `69 EF` - these appear to be 16-bit operands or offsets.
+
+3. The `A5` byte is the high byte of the palette address $A526. The `26` is the low byte.
+
+4. In koueki block, after `26 A5 69 EF`, the sequence continues with `5E B5 8C B4 E6 BB 29 09 B0 25 40 2B 38 E9 4E 88 02 D8 8C B6` - here `02` appears near the end and `40 2B` appears after `B0 25`.
+
+### Interpretation
+`26 A5` appears to be a 2-byte compressed palette reference in the encoded script format. The full palette address $02:A526 is referenced with `26 A5`, where the bank byte $02 is either:
+- Implied from context (palette table at $02:A526)
+- Stored separately in the script VM state
+- Part of a 3-byte encoding where the third byte is sometimes omitted
+
+The `40` opcode preceding `26 A5` in most cases suggests this is a palette load/reference instruction in the script VM's encoded format.
+
+### Next Steps
+- Decode the exact meaning of `6A EF` / `69 EF` after `26 A5`
+- Determine if `26 A5` is a direct palette index, an offset, or a full address reference
+- Map the pattern across all 38 blocks to understand the picture→palette mapping
