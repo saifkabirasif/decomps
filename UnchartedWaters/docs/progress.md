@@ -271,11 +271,15 @@ both are in the cartridge:
 * `$9587: CMP $4211` - the direction pad.
 
 Both are three bytes long, so they can be changed for a comparison that
-does not depend on the emulator at all.  Changing them to `CMP #$FFFF`
-makes the game think a button was let go, and the game then plays
-itself: the introduction is skipped and the menu is reached much sooner.
-With that the game can be walked through, and the parts of the engine
-that only the later scenes use can be traced.
+does not depend on the emulator at all.  The comparison leaves the carry
+set when no button is pressed, so changing it to one that always leaves
+the carry clear makes the game think a button is pressed.
+
+`tools/patchinput.py` makes such a cartridge.  With it the game walks
+past the introduction on its own and comes to a screen that shows the
+map of the characters, which it holds on to because it is waiting for a
+button.  The parts of the engine that only the later scenes use can then
+be traced.
 
 ### The text of the dialogue
 
