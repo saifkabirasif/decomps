@@ -413,6 +413,21 @@ def main() -> int:
         # map can start the tracer there.
         cache = Path(__file__).resolve().parents[1] / COVERAGE_FILE
         cache.parent.mkdir(parents=True, exist_ok=True)
+        # The places the game was seen are kept, so that a run that sees
+        # less does not throw away what an earlier run found.
+        seen = {}
+        if cache.exists():
+            try:
+                seen = json.loads(cache.read_text()).get("executed", {})
+            except (OSError, ValueError):
+                seen = {}
+        for bank, info in result["coverage"]["executed"].items():
+            places = set(seen.get(bank, {}).get("addresses", []))
+            places.update(info["addresses"])
+            seen[bank] = {"addresses": sorted(places),
+                          "samples": seen.get(bank, {}).get("samples", 0)
+                          + info["samples"]}
+        result["coverage"]["executed"] = seen
         cache.write_text(json.dumps(result["coverage"], indent=1))
         print(f"\nthe places the game was seen are kept in {cache}")
 
