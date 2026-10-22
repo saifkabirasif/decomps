@@ -11,6 +11,12 @@ namespace UnchartedWaters.Gui.ViewModels;
 /// <param name="Colors">The sixteen colours, as red, green and blue.</param>
 public sealed record CgramPalette(int Index, IReadOnlyList<(byte R, byte G, byte B)> Colors)
 {
+    /// <summary>
+    /// The file offset of the palette in the cartridge, or null when it
+    /// was read from the colour memory and its place is not known.
+    /// </summary>
+    public int? Offset { get; init; }
+
     /// <summary>The colours as the editor shows them.</summary>
     public IReadOnlyList<ColorEntry> Entries { get; init; } = Array.Empty<ColorEntry>();
 }

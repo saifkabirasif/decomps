@@ -386,6 +386,9 @@ What works today:
   game included, and writes an edited line back into the image.
 * Sprites view that lists the twenty sprite groups of `sgdata` with their
   animation frames.
+* Palette view that reads the colours of the running game and, without
+  the emulator, the palettes of the cartridge itself.  A colour of a
+  cartridge palette can be edited and is written back into the image.
 * Search view that looks for a string in the memory of the running game
   and says which block of the cartridge it came from.  That finds the
   strings the script splits up with control codes, which cannot be read
@@ -399,8 +402,10 @@ order of the palettes.
 
 ### Next
 
-* Show the real CGRAM palette instead of the grey ramp.
-* Edit palettes and portraits, not just the text.
+* Show which palette belongs to which picture.  The palette loader at
+  `$B77C` takes the address from the encoded script, so the script
+  commands have to be decoded to pair them up.
+* Edit portraits and sprites, not just the text and the palettes.
 * Import and export the graphics blocks as PNG.
 
 ## Later phases

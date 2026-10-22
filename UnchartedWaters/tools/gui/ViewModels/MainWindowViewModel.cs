@@ -28,6 +28,8 @@ public sealed class MainWindowViewModel : ObservableObject
         SaveAsCommand = new RelayCommand(_ => SaveAsRequested?.Invoke(this, EventArgs.Empty));
         SearchCommand = new AsyncRelayCommand(_ => SearchAsync());
         ReadColoursCommand = new AsyncRelayCommand(_ => ReadColoursAsync());
+        LoadCartridgePalettesCommand = new RelayCommand(_ => LoadCartridgePalettes());
+        ApplyColourCommand = new RelayCommand(_ => ApplyColour());
     }
 
     /// <summary>Raised when the user asks to open a cartridge.</summary>
@@ -305,6 +307,8 @@ public sealed class MainWindowViewModel : ObservableObject
             if (Set(ref _selectedPalette, value < 0 ? 0 : value))
             {
                 Raise(nameof(SelectedPaletteName));
+                Raise(nameof(CanEditPalette));
+                LoadColourIntoEditors();
                 RefreshGraphics();
             }
         }
@@ -365,6 +369,8 @@ public sealed class MainWindowViewModel : ObservableObject
             {
                 Status = $"{Palettes.Count} palettes of the game read.";
                 Raise(nameof(SelectedPaletteName));
+                Raise(nameof(CanEditPalette));
+                LoadColourIntoEditors();
                 RefreshGraphics();
             }
             else
@@ -380,6 +386,178 @@ public sealed class MainWindowViewModel : ObservableObject
 
     /// <summary>Read the colours of the running game.</summary>
     public AsyncRelayCommand ReadColoursCommand { get; }
+
+    /// <summary>
+    /// Read the palettes that are stored in the cartridge itself.
+    /// </summary>
+    /// <remarks>
+    /// These are the palettes the game loads with its routine at $B77C,
+    /// so they can be edited and written back without the emulator.
+    /// </remarks>
+    public RelayCommand LoadCartridgePalettesCommand { get; }
+
+    /// <summary>Write the colour being edited back into the cartridge.</summary>
+    public RelayCommand ApplyColourCommand { get; }
+
+    /// <summary>Which colour of the selected palette is being edited.</summary>
+    public int PaletteColour
+    {
+        get => _paletteColour;
+        set
+        {
+            if (Set(ref _paletteColour, Math.Clamp(value, 0, Palette.Entries - 1)))
+            {
+                LoadColourIntoEditors();
+            }
+        }
+    }
+
+    private int _paletteColour;
+
+    /// <summary>The red part of the colour being edited.</summary>
+    public int PaletteRed
+    {
+        get => _paletteRed;
+        set => Set(ref _paletteRed, Math.Clamp(value, 0, 255));
+    }
+
+    private int _paletteRed;
+
+    /// <summary>The green part of the colour being edited.</summary>
+    public int PaletteGreen
+    {
+        get => _paletteGreen;
+        set => Set(ref _paletteGreen, Math.Clamp(value, 0, 255));
+    }
+
+    private int _paletteGreen;
+
+    /// <summary>The blue part of the colour being edited.</summary>
+    public int PaletteBlue
+    {
+        get => _paletteBlue;
+        set => Set(ref _paletteBlue, Math.Clamp(value, 0, 255));
+    }
+
+    private int _paletteBlue;
+
+    /// <summary>Can the selected palette be written back?</summary>
+    public bool CanEditPalette =>
+        _rom is not null
+        && SelectedPalette >= 0
+        && SelectedPalette < Palettes.Count
+        && Palettes[SelectedPalette].Offset is not null;
+
+    /// <summary>Copy the colour being edited into the number boxes.</summary>
+    private void LoadColourIntoEditors()
+    {
+        if (SelectedPalette < 0 || SelectedPalette >= Palettes.Count)
+        {
+            return;
+        }
+
+        var entries = Palettes[SelectedPalette].Entries;
+        if (PaletteColour < 0 || PaletteColour >= entries.Count)
+        {
+            return;
+        }
+
+        var entry = entries[PaletteColour];
+        _paletteRed = entry.R;
+        _paletteGreen = entry.G;
+        _paletteBlue = entry.B;
+        Raise(nameof(PaletteRed));
+        Raise(nameof(PaletteGreen));
+        Raise(nameof(PaletteBlue));
+    }
+
+    /// <summary>Write the colour being edited into the cartridge.</summary>
+    private void ApplyColour()
+    {
+        if (_rom is null || !CanEditPalette)
+        {
+            Status = "Open a cartridge and read its palettes first.";
+            return;
+        }
+
+        var palette = Palettes[SelectedPalette];
+        var offset = palette.Offset!.Value;
+        var word = (ushort)Palette.Encode(
+            (byte)PaletteRed, (byte)PaletteGreen, (byte)PaletteBlue);
+        _rom.WriteWordLE(offset + PaletteColour * 2, word);
+
+        var entry = palette.Entries[PaletteColour];
+        var colour = Palette.Decode(word);
+        var updated = new ColorEntry(PaletteColour, colour.R, colour.G, colour.B)
+        {
+            Brush = new Avalonia.Media.SolidColorBrush(
+                Avalonia.Media.Color.FromRgb(colour.R, colour.G, colour.B)),
+        };
+        var entries = palette.Entries.ToList();
+        entries[PaletteColour] = updated;
+        var colours = entries.Select(e => (e.R, e.G, e.B)).ToList();
+        // Replacing the item tells the list in the window that the palette
+        // changed; changing the brush alone would not.  The tile view reads
+        // the colours of the palette, so they are replaced as well.
+        Palettes[SelectedPalette] = palette with { Colors = colours, Entries = entries };
+        _paletteRed = colour.R;
+        _paletteGreen = colour.G;
+        _paletteBlue = colour.B;
+        Raise(nameof(PaletteRed));
+        Raise(nameof(PaletteGreen));
+        Raise(nameof(PaletteBlue));
+        Raise(nameof(Palettes));
+        RefreshGraphics();
+        Status = $"Colour {PaletteColour} of palette {SelectedPalette} written to the cartridge.";
+    }
+
+    /// <summary>Read the palettes that are stored in the cartridge.</summary>
+    private void LoadCartridgePalettes()
+    {
+        if (_rom is null)
+        {
+            Status = "Open a cartridge first.";
+            return;
+        }
+
+        Palettes.Clear();
+        var tables = PaletteTable.Find(_rom);
+        if (tables.Count == 0)
+        {
+            Status = "No palette table was found in the cartridge.";
+            return;
+        }
+
+        // The biggest table is the one the game shows most of the time.
+        var table = tables[0];
+        foreach (var slot in table.Palettes)
+        {
+            var colours = PaletteTable.Read(_rom, slot);
+            var entries = new List<ColorEntry>(colours.Length);
+            for (var i = 0; i < colours.Length; i++)
+            {
+                var (r, g, b) = colours[i];
+                entries.Add(new ColorEntry(i, r, g, b)
+                {
+                    Brush = new Avalonia.Media.SolidColorBrush(
+                        Avalonia.Media.Color.FromRgb(r, g, b)),
+                });
+            }
+
+            Palettes.Add(new CgramPalette(slot.Index, colours)
+            {
+                Offset = slot.Offset,
+                Entries = entries,
+            });
+        }
+
+        Status = $"{Palettes.Count} palettes read from the cartridge " +
+                 $"at {RomImage.DescribeOffset(table.Start)}.";
+        Raise(nameof(SelectedPaletteName));
+        Raise(nameof(CanEditPalette));
+        LoadColourIntoEditors();
+        RefreshGraphics();
+    }
 
     /// <summary>Is a search running at the moment?</summary>
     public bool Searching

@@ -137,14 +137,38 @@ game are put into the video memory through them (`src/graphics_groups.s`):
 | `$0BD4`, `$0C94` | a second list of graphics blocks |
 | `$0CC8` | the colours: fifteen bit words, low byte first, copied into the colour memory two bytes at a time |
 
-The tables in the work memory are **put together while the game runs**,
-so the cartridge does not hold them as they are.  The graphics that are
-loaded are the ones the script asks for.
+The tables in the work memory are put together while the game runs:
 
-The colours are copied into `$0CC8` by the routine at `$B812`, which
-reads them one by one from the pointer in the direct page at `$0000`.
-That routine is one of the handlers of the table at `$9A60`, which is
-where the graphics groups are worked out.
+* `$8260` clears the three lists (`$0B96` twelve bytes, `$0BD4` a
+  hundred and ninety-two, `$0C94` thirty-two).
+* `$B23F` builds the list at `$0B96` from the picture descriptor in the
+  direct page.  The base address of the tiles is in `$64`/`$65` and the
+  bank in `$0B8B`; `$0B94` is the stride from one tile to the next and
+  `$0BA8` the number of tiles.  Every entry is three bytes, so the list
+  is a series of addresses in the cartridge.
+* `$88F3` walks the list and copies one tile per entry into the video
+  memory with a DMA.  The size of the copy is `$0B90` words, which is
+  sixteen words, so **a tile is 32 bytes: four bits a pixel**.  The
+  video address advances by `$20` for every entry.
+
+The palette loader is `$B77C`.  It copies the colours from a 24 bit
+address held in `$60`/`$62` into `$0CC8`, and `$8A81` writes `$0CC8` to
+the colour memory through `$2121` and `$2122`.
+
+Both routines are handlers of the command table at `$9A00`, which has
+seventy-one entries of two bytes.  Entries 43 to 47 are the picture
+commands (`$B23F`, `$B250`, `$B335`, `$B499`, `$B4A4`) and entries 69
+and 70 are the palette commands (`$B77C`, `$B78D`).
+
+The palettes themselves are **plain data in the cartridge**, not
+something the game builds: a palette is sixteen 15 bit colours stored
+little endian, 32 bytes, and an unused palette is sixteen zero words.
+The biggest table begins at `$02:A526` (file `$012526`) and holds 63
+palettes; the first one is the palette of the introduction.  Smaller
+tables elsewhere hold the palettes of the battles, the portraits and the
+ending.  `tools/palettes.py` finds them, reads them and writes them
+back, and the editor can edit them without the emulator.
+
 
 ### The script programs
 
@@ -155,26 +179,42 @@ name turned out to be a chance pair of bytes, so **there are no hidden
 script programs**.  The script programs are the ones the asset table
 names, and they live in banks `$01` and `$04` to `$09`.
 
-### The keys do not work
+### The keys do not work, so the cartridge is changed
 
 The headless emulator does not get a key map, so `GetKeyCode` answers 0
-for every name and nothing that is pressed reaches the game.  The game
-therefore only ever plays the introduction, the title screen and the
-menu on their own.  The rest of the game has to be reached some other
-way: by making the key map work, or by changing the cartridge so that
-it starts in the scene that is wanted.
+for every name and nothing that is pressed reaches the game.  But the
+game reads the joypad of the SNES in exactly two places, and both are
+three bytes long in the cartridge:
+
+| Address | What it reads |
+|---|---|
+| `$8378` | `CMP $4210` — the buttons A, B, X, Y, L and R |
+| `$9587` | `CMP $4211` — the direction pad |
+
+The comparison leaves the carry set when no button is pressed, so
+changing it to one that does not depend on the emulator makes the game
+believe what the patch says.  `tools/patchinput.py` writes such a
+cartridge.
+
+With a cartridge that always says "a button is pressed" the game walks
+past the introduction on its own and comes to the screen that shows the
+map of the characters, where it waits for a button to be let go.  A
+static patch cannot make that edge, so the game is not played further
+that way; the screen is a real scene, though, and its palettes and tiles
+can be reached.
+
 
 ## What is left
 
 * Banks `$03` and `$0A` to `$1F` are the largest unknown: 17 banks,
   544 KiB, over half of the cartridge.  They hold the graphics of the
   game, the tables of the portraits and the sprites, and the sound.
-* The pictures of the game have to be found by playing through it, one
-  scene at a time, and every one of them added to the map.  The tables
-  of the graphics are put together while the game runs, so the script
-  says which pictures are wanted: working out the commands of the script
-  that load the graphics is the way to the whole list.
+* The picture descriptors that feed `$B23F` and `$B77C` come from the
+  encoded script, not from a table in the cartridge: the palette address
+  `$02:A526` appears in the encoded data of bank `$01`.  Decoding the
+  script commands is therefore the way to the whole list of pictures.
 * The tables that describe the portraits are nowhere to be seen yet.
 * The sound program of the SPC700 has not been found.
 * The engine of bank `$00` is only half traced: the parts that the
   introduction does not use are still to be found.
+

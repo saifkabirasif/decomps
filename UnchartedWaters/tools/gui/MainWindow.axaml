@@ -147,14 +147,35 @@
 
         <TabItem Header="Palette">
           <DockPanel>
-            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8" Spacing="8">
-              <Button Content="Read the colours of the game"
-                      Command="{Binding ReadColoursCommand}" />
-              <TextBlock Text="Tiles use palette" VerticalAlignment="Center" />
-              <NumericUpDown Minimum="0" Maximum="15"
-                            Value="{Binding SelectedPalette, Mode=TwoWay}" />
-              <TextBlock Text="{Binding SelectedPaletteName}" VerticalAlignment="Center"
-                         Opacity="0.7" />
+            <StackPanel DockPanel.Dock="Top" Margin="8" Spacing="8">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="Read the colours of the game"
+                        Command="{Binding ReadColoursCommand}" />
+                <Button Content="Read the palettes of the cartridge"
+                        Command="{Binding LoadCartridgePalettesCommand}" />
+                <TextBlock Text="Tiles use palette" VerticalAlignment="Center" />
+                <NumericUpDown Minimum="0" Maximum="62"
+                              Value="{Binding SelectedPalette, Mode=TwoWay}" />
+                <TextBlock Text="{Binding SelectedPaletteName}" VerticalAlignment="Center"
+                           Opacity="0.7" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8"
+                          IsEnabled="{Binding CanEditPalette}">
+                <TextBlock Text="Colour" VerticalAlignment="Center" />
+                <NumericUpDown Minimum="0" Maximum="15" Width="90"
+                              Value="{Binding PaletteColour, Mode=TwoWay}" />
+                <TextBlock Text="R" VerticalAlignment="Center" />
+                <NumericUpDown Minimum="0" Maximum="255" Increment="8" Width="90"
+                              Value="{Binding PaletteRed, Mode=TwoWay}" />
+                <TextBlock Text="G" VerticalAlignment="Center" />
+                <NumericUpDown Minimum="0" Maximum="255" Increment="8" Width="90"
+                              Value="{Binding PaletteGreen, Mode=TwoWay}" />
+                <TextBlock Text="B" VerticalAlignment="Center" />
+                <NumericUpDown Minimum="0" Maximum="255" Increment="8" Width="90"
+                              Value="{Binding PaletteBlue, Mode=TwoWay}" />
+                <Button Content="Write to the cartridge"
+                        Command="{Binding ApplyColourCommand}" />
+              </StackPanel>
             </StackPanel>
             <ListBox ItemsSource="{Binding Palettes}">
               <ListBox.ItemTemplate>
