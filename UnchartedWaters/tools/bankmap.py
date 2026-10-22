@@ -275,6 +275,11 @@ def sweep(seconds: float, keys: tuple[str, ...], rom_path: Path,
     # The tiles of the cartridge are indexed once, so that every tile of
     # every picture can be looked up without searching the whole file
     # again and again.
+    #
+    # A tile is 32 bytes when the picture has four bits for a pixel and
+    # 64 when it has eight, so both are looked for: the first half of a
+    # tile of 64 bytes leads to the places where it could be, and the
+    # second half says whether it is really there.
     index: dict[bytes, list[int]] = collections.defaultdict(list)
     for at in range(0, len(rom) - TILE_SIZE, TILE_SIZE):
         index[rom[at : at + TILE_SIZE]].append(at)
@@ -285,7 +290,15 @@ def sweep(seconds: float, keys: tuple[str, ...], rom_path: Path,
             piece = picture[at : at + TILE_SIZE]
             if len(set(piece)) < 4:
                 continue
-            graphics.extend(index.get(piece, ()))
+            places = index.get(piece, ())
+            graphics.extend(places)
+            if len(piece) < 2 * TILE_SIZE:
+                continue
+            # A tile of eight bits a pixel is two of them.
+            second = picture[at + TILE_SIZE : at + 2 * TILE_SIZE]
+            for place in places:
+                if rom[place + TILE_SIZE : place + 2 * TILE_SIZE] == second:
+                    graphics.append(place)
 
     # Merge the pieces that sit next to each other.
     regions = []
