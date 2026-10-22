@@ -25,7 +25,9 @@ game's assets and produce a new ROM from your own copy of the original.
 
 See [docs/progress.md](docs/progress.md) and
 [docs/memory-map.md](docs/memory-map.md) for the details of what has been
-established so far.
+established so far.  For where the work stands right now, read
+[docs/STATE.md](docs/STATE.md) and run `make brief`; that is the handoff
+for a new session.
 
 ## Layout
 

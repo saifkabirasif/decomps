@@ -8,6 +8,8 @@
 #   make test   run the Python test suite
 #   make gui    build the editor app (needs the .NET SDK)
 #   make gui-test   run the editor's xunit tests
+#   make brief  print the live state of the project (start here)
+#   make brief-full  the same, and run both test suites
 #
 # The original ROM is *not* part of this repository: put your own copy in
 # ../../.games/ (see ../../.games/README.md).
@@ -31,9 +33,16 @@ ROM_ORIG   := $(CURDIR)/../.games/$(ROM_NAME)
 ASM_SOURCES := $(wildcard asm/*.s) $(wildcard src/*.s) $(wildcard spc/*.s)
 OBJECTS     := $(patsubst %.s,$(BUILD_DIR)/%.o,$(ASM_SOURCES))
 
-.PHONY: all rom tools disasm diff verify test clean check-toolchain gui gui-test
+.PHONY: all rom tools disasm diff verify test clean check-toolchain gui gui-test brief brief-full
 
 all: rom
+
+# --- status ---------------------------------------------------------------
+brief:
+	@$(PYTHON) tools/brief.py
+
+brief-full:
+	@$(PYTHON) tools/brief.py --full
 
 # --- toolchain ------------------------------------------------------------
 tools:

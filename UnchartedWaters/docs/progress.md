@@ -1,5 +1,9 @@
 # Progress log
 
+> This is the history of the work, in the order it happened.  For the
+> current position, the next steps and the traps already ruled out, see
+> [STATE.md](STATE.md); run `make brief` for the live version.
+
 ## Phase 0 - toolchain and scaffold (done)
 
 * `WLA DX` built from source (`vhelin/wla-dx`, CMake) - the 65816 assembler
