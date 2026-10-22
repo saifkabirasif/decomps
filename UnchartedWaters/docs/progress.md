@@ -248,6 +248,35 @@ Walking the programs of all the blocks gives 92,156 instructions.  Only
 plain data about 8% would be.  So the programs are read right, and the
 place each block starts its program is right as well.
 
+### What loads the graphics
+
+Not the script.  The machine never touches the tables of the graphics:
+there is not one instruction of the machine that writes `$0B87`, `$0B96`
+or `$0CC8`.  And the pictures are not in the cartridge as a table of
+addresses either: the longest run of address triples in the whole
+cartridge is a repeating pattern in bank `$0D`, not a list.
+
+So the engine of the game builds the list of the pictures while it runs,
+and the code that does it is in the part of bank `$00` that the
+introduction never reaches.  That part is still to be traced, and the
+game has to be played to reach it.
+
+### Playing the game without a keyboard
+
+The headless emulator has no key map, so nothing that is pressed reaches
+the game.  But the game reads the joypad of the SNES in two places, and
+both are in the cartridge:
+
+* `$8378: CMP $4210` - the buttons A, B, X, Y, L and R,
+* `$9587: CMP $4211` - the direction pad.
+
+Both are three bytes long, so they can be changed for a comparison that
+does not depend on the emulator at all.  Changing them to `CMP #$FFFF`
+makes the game think a button was let go, and the game then plays
+itself: the introduction is skipped and the menu is reached much sooner.
+With that the game can be walked through, and the parts of the engine
+that only the later scenes use can be traced.
+
 ### The text of the dialogue
 
 The text is written into the program of the block in the clear.  A string

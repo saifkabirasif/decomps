@@ -157,6 +157,68 @@ def operand_length(rom: Rom, table: list[int], opcode: int) -> int:
     return 0
 
 
+#: The part of bank $00 that holds the machine itself.  Everything
+#: outside it is the engine of the game.
+MACHINE_START = 0xA0FD
+MACHINE_END = 0xA998
+
+
+def engine_calls(rom: Rom, table: list[int], opcode: int,
+                 limit: int = 60) -> list[int]:
+    """The routines of the engine that an instruction reaches.
+
+    An instruction of the machine is usually a short piece of code that
+    ends by going back to the loop.  Some of them call into the engine
+    of the game, and those are the instructions that do something to the
+    screen: they load a picture, they change the colours, and so on.
+    """
+    handlers = frozenset(table)
+    region = _decode_region(rom, 0xA100, 0xA997)
+    seen: set[int] = set()
+    calls: list[int] = []
+    stack = [table[opcode]]
+    while stack and len(seen) < limit:
+        at = stack.pop()
+        if at in seen or at not in region:
+            continue
+        seen.add(at)
+        insn = region[at]
+        if insn.mnemonic == "JMP":
+            target = insn.operand.replace("$", "")
+            if target == f"{LOOP:04X}":
+                break
+            try:
+                target = int(target, 16)
+            except ValueError:
+                continue
+            if target not in handlers and target not in region:
+                calls.append(target)
+            elif target in region:
+                stack.append(target)
+            continue
+        if insn.mnemonic in ("RTS", "RTI", "STP"):
+            break
+        if insn.mnemonic == "JSR":
+            try:
+                target = int(insn.operand.replace("$", ""), 16)
+            except ValueError:
+                continue
+            if target not in handlers and target not in region:
+                calls.append(target)
+            else:
+                stack.append(target)
+        elif insn.mnemonic in ("BCC", "BCS", "BNE", "BEQ", "BPL", "BMI",
+                               "BVC", "BVS", "BRA"):
+            try:
+                target = int(insn.operand.replace("$", ""), 16)
+            except ValueError:
+                continue
+            if target in region:
+                stack.append(target)
+        stack.append(at + insn.size)
+    return calls
+
+
 def name_of(opcode: int) -> str:
     """The name of an instruction."""
     if opcode in NAMES:
@@ -200,12 +262,24 @@ def main() -> int:
                         help="a place in the block to start at")
     parser.add_argument("--length", type=lambda v: int(v, 0), default=0x200,
                         help="how many bytes to show")
+    parser.add_argument("--calls", action="store_true",
+                        help="show which instructions reach the engine")
     parser.add_argument("--list", action="store_true",
                         help="show the instructions of the machine")
     args = parser.parse_args()
 
     rom = Rom(args.rom or find_rom())
     table = read_dispatch(rom.data)
+
+    if args.calls:
+        print("the instructions that reach the engine of the game:\n")
+        for opcode in range(256):
+            calls = engine_calls(rom, table, opcode)
+            if not calls:
+                continue
+            where = ", ".join(f"${c:04X}" for c in sorted(set(calls)))
+            print(f"  ${opcode:02X}  {name_of(opcode):<12} {where}")
+        return 0
 
     if args.list:
         print(f"the dispatch table is at bank $00, ${DISPATCH_ADDRESS:04X}\n")
