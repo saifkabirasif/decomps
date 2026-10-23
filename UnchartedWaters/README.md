@@ -190,7 +190,13 @@ This project was developed with assistance from multiple AI models:
 
 - **Nemotron (researcherid: opencode)** - Primary agent for decompilation analysis, 26A5 pattern analysis, editor feature implementation, PNG import/export workflows, data bank gap lifting via lift tool, SPC700 sound program search, and overall project coordination. Provided the keystone 26A5 pattern analysis that enabled palette reference decoding for graphics regions, directed the lift tool lifting of 16 of 17 data banks, and implemented the Python-to-C# pipeline for PNG import/export and portrait rendering.
 
-- **Various AI models** - Throughout the development spanning many sessions, multiple AI models assisted with ROM analysis, opcode pattern detection, lift tool output interpretation, palette table decoding, sprite/portrait block structure identification, and editor GUI implementation guidance. The cumulative output includes 33 `.s` files lifted via the lift tool, complete editor features verified (0 warnings, 0 errors), and all 27 plan items delivered.
+- **MiMo 3.1** - Assisted with opcode pattern detection, ROM analysis, and lift tool output interpretation across many development sessions. Contributed to the bank mapping analysis and code structure identification.
+
+- **GLM 5.3** - Provided assistance with palette table decoding, sprite/portrait block structure identification, and editor GUI implementation guidance. Contributed to the PNG color mapping algorithm design and portrait rendering structure analysis.
+
+- **DeepSeek Flash 3.1** - Assisted with 26A5 pattern verification, data bank gap analysis, and editor feature validation. Contributed to the color distance algorithm refinement and test case generation.
+
+- **Various AI models** - Throughout the development spanning many sessions, additional AI models assisted with ROM analysis, opcode pattern detection, lift tool output interpretation, palette table decoding, sprite/portrait block structure identification, and editor GUI implementation guidance. The cumulative output includes 33 `.s` files lifted via the lift tool, complete editor features verified (0 warnings, 0 errors), and all 27 plan items delivered.
 
 The core decompilation and analysis methods were developed by the human contributor, with AI assistance for pattern analysis, code lifting, and GUI implementation details. The original ROM remains read-only at `.games/Uncharted Waters (USA).sfc` and is never uploaded or committed to the repository.
 
