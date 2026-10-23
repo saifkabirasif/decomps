@@ -3,7 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:UnchartedWaters.Gui.ViewModels"
-        mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="640"
+        mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="700"
         x:Class="UnchartedWaters.Gui.MainWindow"
         Title="{Binding Title}"
         Width="1100" Height="700"
@@ -102,7 +102,7 @@
                 <StackPanel Margin="0,3">
                   <StackPanel Orientation="Horizontal">
                     <TextBlock Text="{Binding Id}" FontWeight="SemiBold" MinWidth="40" />
-                    <TextBlock Text="{Binding FrameCount, StringFormat='{}{0} frames'}" MinWidth="90" />
+                    <TextBlock Text="{Binding FrameCount, StringFormat='{}{0} frames}'}" MinWidth="90" />
                     <TextBlock Text="{Binding Tiles}" MinWidth="140" Opacity="0.8" />
                   </StackPanel>
                   <TextBlock Text="{Binding Frames}" FontSize="11" Opacity="0.6"
@@ -153,9 +153,11 @@
                         Command="{Binding ReadColoursCommand}" />
                 <Button Content="Read the palettes of the cartridge"
                         Command="{Binding LoadCartridgePalettesCommand}" />
+                <Button Content="Export PNG for selected tiles"
+                        Command="{Binding ExportPngCommand}" />
                 <TextBlock Text="Tiles use palette" VerticalAlignment="Center" />
                 <NumericUpDown Minimum="0" Maximum="62"
-                              Value="{Binding SelectedPalette, Mode=TwoWay}" />
+                               Value="{Binding SelectedPalette, Mode=TwoWay}" />
                 <TextBlock Text="{Binding SelectedPaletteName}" VerticalAlignment="Center"
                            Opacity="0.7" />
               </StackPanel>
@@ -163,18 +165,37 @@
                           IsEnabled="{Binding CanEditPalette}">
                 <TextBlock Text="Colour" VerticalAlignment="Center" />
                 <NumericUpDown Minimum="0" Maximum="15" Width="90"
-                              Value="{Binding PaletteColour, Mode=TwoWay}" />
+                               Value="{Binding PaletteColour, Mode=TwoWay}" />
                 <TextBlock Text="R" VerticalAlignment="Center" />
                 <NumericUpDown Minimum="0" Maximum="255" Increment="8" Width="90"
-                              Value="{Binding PaletteRed, Mode=TwoWay}" />
+                               Value="{Binding PaletteRed, Mode=TwoWay}" />
                 <TextBlock Text="G" VerticalAlignment="Center" />
                 <NumericUpDown Minimum="0" Maximum="255" Increment="8" Width="90"
-                              Value="{Binding PaletteGreen, Mode=TwoWay}" />
+                               Value="{Binding PaletteGreen, Mode=TwoWay}" />
                 <TextBlock Text="B" VerticalAlignment="Center" />
                 <NumericUpDown Minimum="0" Maximum="255" Increment="8" Width="90"
-                              Value="{Binding PaletteBlue, Mode=TwoWay}" />
+                               Value="{Binding PaletteBlue, Mode=TwoWay}" />
                 <Button Content="Write to the cartridge"
                         Command="{Binding ApplyColourCommand}" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8"
+                          IsEnabled="{Binding CanEditPalette}">
+                <TextBlock Text="Import PNG" VerticalAlignment="Center" />
+                <TextBox Width="120" Text="{Binding ImportPngPath, Mode=TwoWay}" Watermark="PNG file path" />
+                <Button Content="Browse" Width="60"
+                        Command="{Binding BrowsePngCommand}" />
+                <Button Content="Apply PNG" IsEnabled="{Binding CanImportPng}"
+                        Command="{Binding ImportPngCommand}" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8"
+                          IsEnabled="{Binding CanEditPalette}">
+                <TextBlock Text="Render Portraits" VerticalAlignment="Center" />
+                <Button Content="Render 4 portrait blocks"
+                        Command="{Binding RenderPortraitsCommand}" />
+                <NumericUpDown Minimum="0" Maximum="62"
+                               Value="{Binding SelectedPortraitPalette, Mode=TwoWay}" />
+                <TextBlock Text="{Binding SelectedPortraitPaletteName}" VerticalAlignment="Center"
+                           Opacity="0.7" />
               </StackPanel>
             </StackPanel>
             <ListBox ItemsSource="{Binding Palettes}">
@@ -194,8 +215,70 @@
                           <Border Width="26" Height="26" CornerRadius="3"
                                   Background="{Binding Brush}" ToolTip.Tip="{Binding Hex}" />
                         </DataTemplate>
-                      </ItemsControl.ItemTemplate>
+                      </ItemsControl.ItemsPanel>
                     </ItemsControl>
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+        </TabItem>
+
+        <TabItem Header="Portraits">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Top" Margin="8" Spacing="8">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Select sprite block:" />
+                <ComboBox Width="100"
+                          ItemsSource="{Binding AvailablePortraitBlocks}"
+                          SelectedItem="{Binding SelectedPortraitBlock}" />
+                <Button Content="Render Portrait" IsEnabled="{Binding CanRenderPortrait}"
+                        Command="{Binding RenderPortraitCommand}" />
+                <TextBlock Text="Palette:" VerticalAlignment="Center" />
+                <NumericUpDown Minimum="0" Maximum="62"
+                               Value="{Binding SelectedPortraitPalette, Mode=TwoWay}" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Block.Name" FontWeight="SemiBold" MinWidth="50" />
+              </StackPanel>
+              <ScrollViewer>
+                <Image Source="{Binding PortraitRender}" Stretch="None" />
+              </ScrollViewer>
+            </StackPanel>
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8">
+              <Button Content="Save Portrait as PNG"
+                      Command="{SavePortraitPngCommand}" />
+              <TextBlock Text="Portrait from: s_pk, s_onna, s_tobaku, s_nwaka blocks"
+                         FontSize="10" Opacity="0.7" />
+            </StackPanel>
+          </DockPanel>
+        </TabItem>
+
+        <TabItem Header="Search">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="8" Spacing="8">
+              <TextBox Width="260" Text="{Binding SearchText, Mode=TwoWay}"
+                       Watermark="text to look for" />
+              <TextBox Width="140" Text="{Binding SearchKeys, Mode=TwoWay}"
+                       Watermark="keys, e.g. Enter,X" />
+              <Button Content="Search the running game"
+                      Command="{Binding SearchCommand}" />
+              <ProgressBar IsIndeterminate="True" Width="90"
+                           IsVisible="{Binding Searching}" />
+            </StackPanel>
+            <TextBlock DockPanel.Dock="Bottom" Text="{Binding SearchStatus}"
+                       Margin="8,4" Opacity="0.7" />
+            <ListBox ItemsSource="{Binding SearchResults}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:MemoryHitItem">
+                  <StackPanel Margin="0,2">
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock Text="{Binding MemoryAddress}" FontWeight="SemiBold"
+                                 MinWidth="60" FontFamily="Consolas,Menlo,Monospace" />
+                      <TextBlock Text="{Binding Source}" Opacity="0.85" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding Text}" FontSize="11" Opacity="0.6"
+                               FontFamily="Consolas,Menlo,Monospace" />
                   </StackPanel>
                 </DataTemplate>
               </ListBox.ItemTemplate>
