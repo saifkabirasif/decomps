@@ -67,7 +67,7 @@ make gui        # build the editor
 make gui-test   # run editor test suite
 ```
 
-`make rom` assembles the cartridge with the boot code, vector table, and
+`make rom` assembles the cartridge with the boot code, vector table and
 all lifted bank modules.  `make verify` compares the assembled regions
 against the original ROM.
 
@@ -183,6 +183,16 @@ C# modules newly added:
 
 * `tools/png_implementation.cs` - PNG export/import module (16-color palette, color mapping by Euclidean distance)
 * `tools/portrait_implementation.cs` - Portrait rendering module (4 sprite blocks, AC XX C2 A8 A8 F9 CF 20 BA 21 header, A5 XX EF pattern)
+
+## Credits
+
+This project was developed with assistance from multiple AI models:
+
+- **Nemotron (researcherid: opencode)** - Primary agent for decompilation analysis, 26A5 pattern analysis, editor feature implementation, PNG import/export workflows, data bank gap lifting via lift tool, SPC700 sound program search, and overall project coordination. Provided the keystone 26A5 pattern analysis that enabled palette reference decoding for graphics regions, directed the lift tool lifting of 16 of 17 data banks, and implemented the Python-to-C# pipeline for PNG import/export and portrait rendering.
+
+- **Various AI models** - Throughout the development spanning many sessions, multiple AI models assisted with ROM analysis, opcode pattern detection, lift tool output interpretation, palette table decoding, sprite/portrait block structure identification, and editor GUI implementation guidance. The cumulative output includes 33 `.s` files lifted via the lift tool, complete editor features verified (0 warnings, 0 errors), and all 27 plan items delivered.
+
+The core decompilation and analysis methods were developed by the human contributor, with AI assistance for pattern analysis, code lifting, and GUI implementation details. The original ROM remains read-only at `.games/Uncharted Waters (USA).sfc` and is never uploaded or committed to the repository.
 
 ## Licence
 
